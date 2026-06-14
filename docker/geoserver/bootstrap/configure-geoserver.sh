@@ -123,7 +123,7 @@ publish_feature_type "engineer_assets" "Engineer Assets"
 publish_feature_type "fire_fighting_assets" "Fire Fighting Assets"
 publish_feature_type "utility_status" "Utility Status"
 publish_feature_type "geoai_cog_footprints" "GeoAI COG Footprints"
-publish_feature_type "detected_roads" "GeoAI Detected Roads"
+publish_feature_type "detected_roads" "GeoAI Detections"
 publish_feature_type "afim_event_point_bm0914" "Current Incidents"
 publish_feature_type "afim_event_archive" "Incident Archive"
 

@@ -146,9 +146,10 @@ ignored `data/`, `models/`, `outputs/`, and `logs/` folders so downloaded models
 sample COGs, masks, vectors, and API logs remain local developer artifacts.
 
 On first start, the GeoAI container downloads the open-source HF U-Net/Keras road
-model and fetches the Taos NAIP sample COG if they are missing. Set
-`GEOAI_DOWNLOAD_HF_MODEL=false` or `GEOAI_FETCH_SAMPLE_COG=false` in `.env` to
-disable either automatic download.
+model, the WHU building segmentation model, and the Taos NAIP sample COG if they
+are missing. Set `GEOAI_DOWNLOAD_HF_MODEL=false`,
+`GEOAI_DOWNLOAD_HF_BUILDING_MODEL=false`, or `GEOAI_FETCH_SAMPLE_COG=false` in
+`.env` to disable any automatic download.
 
 ### Keep Grails on H2
 
@@ -272,7 +273,7 @@ GSP links can open the map with a selected layer and feature filter, for example
 /GeoStatusBoard/map?layer=airportStatus&field=site_name&value=Kirtland%20AFB
 ```
 
-The map configuration lives under `geo.viewer`, `geo.geoserver`, and `geo.layers` in `grails-app/conf/application.yml`. The current default basemaps are CARTO Dark Blue and OpenStreetMap, and configured layers include airport status, current airfield status, airfield surface status, NAVAIDs, engineer assets, fire fighting assets, utility status, GeoAI COG footprints, GeoAI detected roads, current incidents, and incident archive.
+The map configuration lives under `geo.viewer`, `geo.geoserver`, and `geo.layers` in `grails-app/conf/application.yml`. The current default basemaps are CARTO Dark Blue and OpenStreetMap, and configured layers include airport status, current airfield status, airfield surface status, NAVAIDs, engineer assets, fire fighting assets, utility status, GeoAI COG footprints, GeoAI detections, current incidents, and incident archive.
 
 The map also includes a compact GeoAI request panel. It loads model choices from the
 GeoAI API through same-origin Grails proxy routes, submits the selected model,
@@ -287,13 +288,13 @@ Configure the target API with `geo.geoai.apiUrl` or the `GEOAI_API_URL` environm
 variable. If GeoAI is unavailable, the map remains usable and the panel shows the
 request failure instead of blocking map tools.
 
-When the selected workflow loads PostGIS features, the map refreshes `Detected Roads`
+When the selected workflow loads PostGIS features, the map refreshes `GeoAI Detections`
 and selects the returned API run id in the layer's job filter. Zero-feature runs leave
-the existing road layer intact.
+the existing detection layer intact.
 
 When a GeoAI workflow writes to `public.detected_roads` in the local PostGIS
 database, rerun `.\dev.ps1 geoserver-init` to publish `gsb:detected_roads`.
-The map exposes it as the `Detected Roads` layer under the `GeoAI` category and
+The map exposes it as the `GeoAI Detections` layer under the `GeoAI` category and
 adds a job filter under that layer when `job_id` values are present. The COG
 inventory footprint table is `public.geoai_cog_footprints` and is exposed as
 `COG Footprints`.
@@ -315,6 +316,7 @@ See:
 
 - Added an optional Docker Compose GIS stack for local PostGIS and GeoServer testing.
 - Added a GeoAI Docker Compose profile for TensorFlow/Keras road segmentation while Grails runs locally.
+- Added an open-source WHU building segmentation workflow for visible Taos NAIP GeoAI detections.
 - Added a `postgis` Spring profile while keeping H2 as the default development and test database.
 - Added GeoServer WFS timeout handling so missing local GeoServer services fail gracefully in the map status panel.
 - Added PostgreSQL-safe table/formula mappings for the local PostGIS development profile.

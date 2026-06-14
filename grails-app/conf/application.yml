@@ -323,7 +323,7 @@ geo:
             geometryType: Geometry
             color: '#f59e0b'
         detectedRoads:
-            title: Detected Roads
+            title: GeoAI Detections
             category: GeoAI
             enabled: true
             typeName: 'gsb:detected_roads'

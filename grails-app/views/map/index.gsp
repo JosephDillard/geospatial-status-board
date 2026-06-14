@@ -899,9 +899,9 @@
                 setStatus('GeoAI run failed: ' + (errorMessage || shortRunId(run.id || runId)), true);
             } else if (status === 'succeeded') {
                 if (refreshDetectedRoadsAfterRun(run)) {
-                    setStatus('GeoAI run succeeded; refreshing Detected Roads for job ' + shortRunId(run.id || runId));
+                    setStatus('GeoAI run succeeded; refreshing GeoAI Detections for job ' + shortRunId(run.id || runId));
                 } else if (runAttemptedPostgisLoad(run)) {
-                    setStatus('GeoAI run succeeded but did not load road features for this area: ' + shortRunId(run.id || runId));
+                    setStatus('GeoAI run succeeded but did not load features for this area: ' + shortRunId(run.id || runId));
                 } else {
                     setStatus('GeoAI run succeeded: ' + shortRunId(run.id || runId));
                 }
