@@ -12,6 +12,7 @@ POSTGIS_DB="${POSTGIS_DB:-geostatusboard}"
 POSTGIS_USER="${POSTGIS_USER:-gsb}"
 POSTGIS_PASSWORD="${POSTGIS_PASSWORD:-gsb}"
 POSTGIS_SCHEMA="${POSTGIS_SCHEMA:-public}"
+GEOSERVER_WFS_MAX_FEATURES="${GEOSERVER_WFS_MAX_FEATURES:-5000}"
 
 auth() {
   curl -sS -u "${ADMIN_USER}:${ADMIN_PASSWORD}" "$@"
@@ -84,6 +85,32 @@ EOF
   fi
 }
 
+configure_wfs_service() {
+  current_xml="$(auth -f "${REST_URL}/services/wfs/settings.xml" 2>/dev/null || true)"
+  if [ -n "$current_xml" ]; then
+    if printf '%s' "$current_xml" | grep -q '<maxFeatures>'; then
+      wfs_xml="$(printf '%s' "$current_xml" | sed "s|<maxFeatures>[^<]*</maxFeatures>|<maxFeatures>$(xml_escape "$GEOSERVER_WFS_MAX_FEATURES")</maxFeatures>|")"
+    else
+      wfs_xml="$(printf '%s' "$current_xml" | sed "s|</wfs>|<maxFeatures>$(xml_escape "$GEOSERVER_WFS_MAX_FEATURES")</maxFeatures></wfs>|")"
+    fi
+  else
+    wfs_xml=$(cat <<EOF
+<wfs>
+  <enabled>true</enabled>
+  <name>WFS</name>
+  <serviceLevel>COMPLETE</serviceLevel>
+  <maxFeatures>$(xml_escape "$GEOSERVER_WFS_MAX_FEATURES")</maxFeatures>
+  <featureBounding>true</featureBounding>
+</wfs>
+EOF
+)
+  fi
+
+  auth -f -XPUT -H "Content-Type: text/xml" --data "$wfs_xml" \
+    "${REST_URL}/services/wfs/settings.xml" >/dev/null
+  echo "Configured GeoServer WFS maxFeatures=${GEOSERVER_WFS_MAX_FEATURES}."
+}
+
 publish_feature_type() {
   table_name="$1"
   title="$2"
@@ -115,6 +142,7 @@ EOF
 wait_for_geoserver
 ensure_workspace
 ensure_datastore
+configure_wfs_service
 
 publish_feature_type "index_airfields" "Airport Status"
 publish_feature_type "runwaydamagepolys" "Airfield Surface Status"

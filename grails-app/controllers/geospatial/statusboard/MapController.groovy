@@ -15,7 +15,7 @@ class MapController {
         Map viewerConfig = asMap(geoConfig.viewer)
         Map geoserverConfig = asMap(geoConfig.geoserver)
         Map geoaiConfig = asMap(geoConfig.geoai)
-        Map layers = normalizeLayers(asMap(geoConfig.layers))
+        Map layers = normalizeLayers(asMap(geoConfig.layers), asInteger(viewerConfig.maxFeatures, 500))
         Map externalLayers = normalizeExternalLayers(asMap(geoConfig.externalLayers))
         Map basemaps = normalizeBasemaps(asMap(viewerConfig.basemaps), viewerConfig)
         Map tools = normalizeTools(asMap(viewerConfig.tools))
@@ -83,7 +83,7 @@ class MapController {
         ]
     }
 
-    private Map normalizeLayers(Map rawLayers) {
+    private Map normalizeLayers(Map rawLayers, Integer defaultMaxFeatures = 500) {
         rawLayers.collectEntries { Object key, Object value ->
             String layerKey = key.toString()
             Map layer = asMap(value)
@@ -101,7 +101,7 @@ class MapController {
                     filterField : layer.filterField?.toString() ?: '',
                     filterLabel : layer.filterLabel?.toString() ?: '',
                     filterAllLabel: layer.filterAllLabel?.toString() ?: '',
-                    maxFeatures : layer.maxFeatures ?: null,
+                    maxFeatures : layer.maxFeatures ?: defaultMaxFeatures,
                     category    : layer.category?.toString() ?: 'Internal',
                     enabled     : asBoolean(layer.enabled, false)
                 ]

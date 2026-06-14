@@ -139,6 +139,10 @@ Copy-Item .env.example .env
 
 Then edit `.env`. The `.env` file is intentionally ignored by Git.
 
+`GEOSERVER_WFS_MAX_FEATURES` controls the GeoServer WFS service cap used by the
+bootstrap container. The default is `5000`, while the map viewer requests at least
+`geo.viewer.maxFeatures` (`500` by default) for internal WFS layers.
+
 The `geoai` Compose profile builds the sibling GeoAI repo from
 `GEOAI_CONTEXT=../geoai-asset-detection-platform`. It bind-mounts that repo's
 `src/`, `config/`, `scripts/`, and `sql/` folders for a faster dev loop, plus the
