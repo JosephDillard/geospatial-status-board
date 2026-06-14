@@ -1341,11 +1341,11 @@ img.grails-logo {
     bottom: 126px;
     max-height: none;
     min-height: 0;
-    right: 84px;
+    right: 12px;
     overflow: auto;
     padding: 0.65rem;
     top: 12px;
-    width: min(360px, calc(100% - 112px));
+    width: min(360px, calc(100% - 24px));
     z-index: 6;
 }
 
@@ -1951,7 +1951,15 @@ img.grails-logo {
 }
 
 .geo-basemap-picker {
+    flex: 0 0 58px;
+    height: 58px;
+    line-height: 0;
     position: relative;
+    width: 58px;
+}
+
+.geo-basemap-picker > .geo-map-thumb-button {
+    display: block;
 }
 
 .geo-basemap-menu {
