@@ -81,7 +81,10 @@
         </div>
     </div>
 </nav>
-<gsb:quickLinks/>
+<g:set var="hideQuickLinks" value="${pageProperty(name: 'page.hideQuickLinks')?.toString()?.trim() == 'true'}"/>
+<g:if test="${!hideQuickLinks}">
+    <gsb:quickLinks/>
+</g:if>
 
 <g:layoutBody/>
 

@@ -146,11 +146,13 @@ class MapController {
                 basemapKey,
                 [
                     title      : basemap.title?.toString() ?: basemapKey,
+                    buttonLabel: basemap.buttonLabel?.toString() ?: basemap.title?.toString() ?: basemapKey,
                     tilesUrl   : basemap.tilesUrl?.toString() ?: '',
                     attribution: basemap.attribution?.toString() ?: '',
                     background : basemap.background?.toString() ?: '#06162f',
                     opacity    : basemap.opacity ?: 1,
-                    preview    : basemap.preview?.toString() ?: basemap.background?.toString() ?: '#06162f'
+                    preview    : basemap.preview?.toString() ?: basemap.background?.toString() ?: '#06162f',
+                    previewImage: basemap.previewImage?.toString() ?: ''
                 ]
             ]
         }
@@ -162,11 +164,13 @@ class MapController {
         [
             osmLight: [
                 title      : 'OpenStreetMap',
+                buttonLabel: 'OSM',
                 tilesUrl   : viewerConfig.osmTilesUrl?.toString() ?: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 attribution: '(c) OpenStreetMap contributors',
                 background : '#dce7f3',
                 opacity    : 1,
-                preview    : 'linear-gradient(135deg, #e8f1f5 0%, #cddfb8 50%, #8fb7d3 100%)'
+                preview    : 'linear-gradient(135deg, #e8f1f5 0%, #cddfb8 50%, #8fb7d3 100%)',
+                previewImage: ''
             ]
         ]
     }

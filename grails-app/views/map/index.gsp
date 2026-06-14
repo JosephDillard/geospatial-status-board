@@ -3,6 +3,7 @@
 <head>
     <meta name="layout" content="main"/>
     <title>Map View</title>
+    <content tag="hideQuickLinks">true</content>
     <link rel="stylesheet" href="${mapLibreCssUrl}"/>
     <g:if test="${drawEnabled && mapDrawCssUrl}">
         <link rel="stylesheet" href="${mapDrawCssUrl}"/>
@@ -61,6 +62,7 @@
                 <span class="geo-layer-thumb" aria-hidden="true">
                     <span></span><span></span><span></span>
                 </span>
+                <span class="geo-map-thumb-label">Layers</span>
             </button>
             <div id="geo-basemap-picker" class="geo-basemap-picker" aria-label="Basemaps">
                 <button id="geo-basemap-toggle"
@@ -70,16 +72,19 @@
                         title="Basemaps"
                         aria-expanded="false">
                     <span class="geo-basemap-toggle-preview" aria-hidden="true"></span>
+                    <span id="geo-basemap-toggle-label" class="geo-map-thumb-label">Basemap</span>
                 </button>
                 <div id="geo-basemap-menu" class="geo-basemap-menu" hidden>
                     <g:each in="${basemaps}" var="entry">
                         <button type="button"
                                 class="geo-basemap-card"
                                 data-basemap-key="${entry.key}"
+                                data-basemap-preview-image="${entry.value.previewImage ?: ''}"
                                 aria-label="${entry.value.title}"
                                 title="${entry.value.title}"
                                 style="--basemap-preview: ${entry.value.preview};">
                             <span class="geo-basemap-preview" aria-hidden="true"></span>
+                            <span class="geo-basemap-card-label">${entry.value.buttonLabel ?: entry.value.title}</span>
                         </button>
                     </g:each>
                 </div>
@@ -307,6 +312,7 @@
     var externalLayerList = document.getElementById('geo-external-layer-list');
     var basemapPicker = document.getElementById('geo-basemap-picker');
     var basemapToggle = document.getElementById('geo-basemap-toggle');
+    var basemapToggleLabel = document.getElementById('geo-basemap-toggle-label');
     var basemapMenu = document.getElementById('geo-basemap-menu');
     var filterToggle = document.getElementById('geo-filter-toggle');
     var filterFields = document.getElementById('geo-filter-fields');
@@ -357,6 +363,7 @@
     var backgroundLayerId = 'geo-basemap-background';
     var activeBasemapKey = config.selectedBasemap;
     var internalLayerState = {};
+    var internalLayerRequestSeq = 0;
     var externalLayerState = {};
     var renderLayerToLayerKey = {};
     var layerIssueState = {};
@@ -412,6 +419,10 @@
 
     function safeId(value) {
         return String(value).replace(/[^a-zA-Z0-9_-]/g, '-');
+    }
+
+    function cssUrl(value) {
+        return 'url("' + String(value || '').replace(/["\\]/g, '\\$&') + '")';
     }
 
     function sourceIdFor(key) {
@@ -1173,9 +1184,24 @@
         var basemap = selectedBasemap();
         if (basemapToggle) {
             basemapToggle.style.setProperty('--basemap-preview', basemap.preview || basemap.background || '#183d66');
+            if (basemap.previewImage) {
+                basemapToggle.style.setProperty('--basemap-preview-image', cssUrl(basemap.previewImage));
+            } else {
+                basemapToggle.style.removeProperty('--basemap-preview-image');
+            }
+        }
+        if (basemapToggleLabel) {
+            basemapToggleLabel.textContent = basemap.buttonLabel || basemap.title || 'Basemap';
         }
         Array.prototype.forEach.call(document.querySelectorAll('.geo-basemap-card'), function (card) {
-            card.classList.toggle('is-active', card.getAttribute('data-basemap-key') === activeBasemapKey);
+            var key = card.getAttribute('data-basemap-key');
+            var cardBasemap = (config.basemaps || {})[key] || {};
+            if (cardBasemap.previewImage) {
+                card.style.setProperty('--basemap-preview-image', cssUrl(cardBasemap.previewImage));
+            } else {
+                card.style.removeProperty('--basemap-preview-image');
+            }
+            card.classList.toggle('is-active', key === activeBasemapKey);
         });
     }
 
@@ -2123,6 +2149,14 @@
     function reloadInternalLayerForFilter(key) {
         var checkbox = document.querySelector('[data-layer-kind="internal"][data-layer-key="' + key + '"]');
         if (checkbox && checkbox.checked) {
+            var source = map.getSource(sourceIdFor(key));
+            if (source && source.setData) {
+                source.setData({ type: 'FeatureCollection', features: [] });
+            }
+            internalLayerState[key] = Object.assign({}, internalLayerState[key] || {}, {
+                loading: false,
+                requestId: ++internalLayerRequestSeq
+            });
             if (internalLayerState[key] && internalLayerState[key].loaded) {
                 removeInternalLayer(key);
             }
@@ -2242,12 +2276,19 @@
         if (state.loading) {
             return;
         }
-        internalLayerState[key] = Object.assign({}, state, { loading: true });
+        var requestId = ++internalLayerRequestSeq;
+        internalLayerState[key] = Object.assign({}, state, {
+            loading: true,
+            requestId: requestId
+        });
         updateLayerStatus(key, 'internal', 'Loading');
         setStatus('Loading ' + layer.title + ' from GeoServer...');
 
         fetchWfsJson(key, layer)
             .then(function (geojson) {
+                if ((internalLayerState[key] || {}).requestId !== requestId) {
+                    return;
+                }
                 var checkbox = document.querySelector('[data-layer-kind="internal"][data-layer-key="' + key + '"]');
                 if (!checkbox || !checkbox.checked) {
                     internalLayerState[key] = { loaded: false, loading: false, data: null };
@@ -2260,6 +2301,9 @@
                 setStatus(layer.title + ': ' + statusText + ' loaded.');
             })
             .catch(function (error) {
+                if ((internalLayerState[key] || {}).requestId !== requestId) {
+                    return;
+                }
                 internalLayerState[key] = { loaded: false, loading: false, data: null };
                 updateLayerStatus(key, 'internal', 'Error');
                 setStatus(layer.title + ': ' + error.message + '. Start the local GIS stack or check GeoServer, CORS, layer names, and WFS outputFormat.', true);

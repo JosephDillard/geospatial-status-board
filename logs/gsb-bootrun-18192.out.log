@@ -1,5 +1,5 @@
-> Task :gsb-incidents:compileAstJava NO-SOURCE
 > Task :gsb-airport:compileAstJava NO-SOURCE
+> Task :gsb-incidents:compileAstJava NO-SOURCE
 > Task :buildProperties UP-TO-DATE
 > Task :gsb-incidents:compileAstGroovy NO-SOURCE
 > Task :gsb-airport:compileAstGroovy NO-SOURCE
@@ -9,17 +9,17 @@
 > Task :gsb-airport:astClasses UP-TO-DATE
 > Task :gsb-incidents:compileJava NO-SOURCE
 > Task :gsb-airport:compileJava NO-SOURCE
-> Task :gsb-airport:configScript UP-TO-DATE
 > Task :gsb-incidents:configScript UP-TO-DATE
-> Task :gsb-incidents:compileGroovy UP-TO-DATE
+> Task :gsb-airport:configScript UP-TO-DATE
 > Task :gsb-airport:compileGroovy UP-TO-DATE
-> Task :gsb-incidents:copyAstClasses NO-SOURCE
+> Task :gsb-incidents:compileGroovy UP-TO-DATE
 > Task :gsb-airport:copyAstClasses NO-SOURCE
-> Task :gsb-incidents:assetPluginPackage UP-TO-DATE
+> Task :gsb-incidents:copyAstClasses NO-SOURCE
 > Task :gsb-airport:assetPluginPackage UP-TO-DATE
 > Task :gsb-airport:copyCommands NO-SOURCE
-> Task :gsb-incidents:copyCommands NO-SOURCE
+> Task :gsb-incidents:assetPluginPackage UP-TO-DATE
 > Task :gsb-airport:copyTemplates NO-SOURCE
+> Task :gsb-incidents:copyCommands NO-SOURCE
 > Task :gsb-incidents:copyTemplates NO-SOURCE
 > Task :processResources UP-TO-DATE
 > Task :gsb-incidents:processResources UP-TO-DATE
@@ -27,22 +27,17 @@
 > Task :gsb-incidents:compileWebappGroovyPages NO-SOURCE
 > Task :gsb-airport:processResources UP-TO-DATE
 > Task :gsb-airport:classes UP-TO-DATE
-> Task :gsb-airport:compileWebappGroovyPages NO-SOURCE
 > Task :gsb-incidents:compileGroovyPages UP-TO-DATE
+> Task :gsb-airport:compileWebappGroovyPages NO-SOURCE
 > Task :gsb-incidents:jar UP-TO-DATE
 > Task :gsb-airport:compileGroovyPages UP-TO-DATE
 > Task :gsb-airport:jar UP-TO-DATE
 > Task :compileJava NO-SOURCE
 > Task :compileGroovy UP-TO-DATE
 > Task :classes UP-TO-DATE
-> Task :bootRunMainClassName
+> Task :bootRunMainClassName UP-TO-DATE
 
 > Task :bootRun
-
-Configuring Spring Security Core ...
-... finished configuring Spring Security Core
-
-Grails application running at http://localhost:18192/GeoStatusBoard in environment: development
 
 Configuring Spring Security Core ...
 ... finished configuring Spring Security Core
