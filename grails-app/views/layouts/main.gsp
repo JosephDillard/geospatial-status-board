@@ -57,20 +57,30 @@
                     </li>
                 </sec:ifLoggedIn>
                 <g:pageProperty name="page.nav"/>
-                <sec:ifAnyGranted roles="ROLE_ADMIN">
-                    <li class="nav-item">
-                        <g:link controller="appAdmin" action="index" class="nav-link">App Admin</g:link>
-                    </li>
-                </sec:ifAnyGranted>
                 <sec:ifLoggedIn>
                     <li class="nav-item">
-                        <span class="navbar-text geospatial-status-board-user"><sec:username/></span>
+                        <span class="navbar-text geospatial-status-board-user">user: <sec:username/></span>
                     </li>
                     <li class="nav-item">
                         <g:form controller="logout" action="index" method="POST" class="geospatial-status-board-logout-form">
                             <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
                         </g:form>
                     </li>
+                    <sec:ifAnyGranted roles="ROLE_ADMIN">
+                        <li class="nav-item">
+                            <g:link controller="appAdmin"
+                                    action="index"
+                                    class="geospatial-status-board-admin-button"
+                                    title="App Admin"
+                                    aria-label="App Admin">
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </g:link>
+                        </li>
+                    </sec:ifAnyGranted>
                 </sec:ifLoggedIn>
                 <sec:ifNotLoggedIn>
                     <li class="nav-item">

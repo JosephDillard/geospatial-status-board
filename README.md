@@ -15,9 +15,9 @@ This repository contains a status app linkable to geospatial data for dashboard 
 
 ## Screenshots
 
-![Status app map with incidents, weather, feature popup, and layers panel](docs/images/map-view-incidents-weather-popup-layers.png)
+![Status app map with GeoAI detections, COG footprint, LLM panel, and layers panel](docs/images/map-view-geoai-detections-layers.png)
 
-The screenshot above shows the geospatial status map with feature popups, readable status details, weather overlays, incident layers, and the layers panel.
+The screenshot above shows the geospatial status map with GeoAI detections, the COG footprint overlay, the LLM request panel, service health indicators, and the layers panel.
 
 ## Technology
 
@@ -148,6 +148,15 @@ The `geoai` Compose profile builds the sibling GeoAI repo from
 `src/`, `config/`, `scripts/`, and `sql/` folders for a faster dev loop, plus the
 ignored `data/`, `models/`, `outputs/`, and `logs/` folders so downloaded models,
 sample COGs, masks, vectors, and API logs remain local developer artifacts.
+
+On NVIDIA RTX laptops, the GeoAI container requests one NVIDIA GPU by default and
+builds with CUDA-enabled PyTorch wheels. Docker Desktop must be using the WSL 2
+backend with NVIDIA Container Toolkit support. To force a CPU-only GeoAI image,
+set this in `.env` before rebuilding:
+
+```text
+GEOAI_PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+```
 
 On first start, the GeoAI container downloads the open-source HF U-Net/Keras road
 model, the WHU building segmentation model, and the Taos NAIP sample COG if they

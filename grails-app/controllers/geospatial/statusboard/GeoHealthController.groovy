@@ -6,6 +6,7 @@ import groovy.json.JsonOutput
 
 import javax.sql.DataSource
 import java.sql.Connection
+import java.sql.DriverManager
 import java.sql.ResultSet
 import java.sql.Statement
 import java.time.Instant
@@ -70,26 +71,56 @@ class GeoHealthController {
             try {
                 String product = connection.metaData.databaseProductName ?: 'database'
                 if (!product.toLowerCase().contains('postgresql')) {
-                    return status(false, 'PostGIS', "Connected to ${product}, not PostgreSQL")
+                    return checkConfiguredPostgis("App datasource is ${product}")
                 }
 
-                Statement statement = connection.createStatement()
-                try {
-                    ResultSet rs = statement.executeQuery('SELECT PostGIS_Version()')
-                    try {
-                        String version = rs.next() ? rs.getString(1) : 'available'
-                        return status(true, 'PostGIS', version)
-                    } finally {
-                        rs.close()
-                    }
-                } finally {
-                    statement.close()
-                }
+                return checkPostgisConnection(connection, [:])
             } finally {
                 connection.close()
             }
         } catch (Exception ex) {
-            return status(false, 'PostGIS', ex.message ?: ex.class.simpleName)
+            return checkConfiguredPostgis(ex.message ?: ex.class.simpleName)
+        }
+    }
+
+    private Map checkConfiguredPostgis(String fallbackReason) {
+        String host = System.getenv('POSTGIS_HOST') ?: 'localhost'
+        String port = System.getenv('POSTGIS_PORT') ?: '5432'
+        String db = System.getenv('POSTGIS_DB') ?: 'geostatusboard'
+        String user = System.getenv('POSTGIS_USER') ?: 'gsb'
+        String password = System.getenv('POSTGIS_PASSWORD') ?: 'gsb'
+        String url = "jdbc:postgresql://${host}:${port}/${db}"
+
+        try {
+            Connection connection = DriverManager.getConnection(url, user, password)
+            try {
+                return checkPostgisConnection(connection, [
+                    url: url,
+                    datasource: fallbackReason
+                ])
+            } finally {
+                connection.close()
+            }
+        } catch (Exception ex) {
+            return status(false, 'PostGIS', ex.message ?: ex.class.simpleName, [
+                url: url,
+                datasource: fallbackReason
+            ])
+        }
+    }
+
+    private Map checkPostgisConnection(Connection connection, Map details) {
+        Statement statement = connection.createStatement()
+        try {
+            ResultSet rs = statement.executeQuery('SELECT PostGIS_Version()')
+            try {
+                String version = rs.next() ? rs.getString(1) : 'available'
+                return status(true, 'PostGIS', version, details)
+            } finally {
+                rs.close()
+            }
+        } finally {
+            statement.close()
         }
     }
 

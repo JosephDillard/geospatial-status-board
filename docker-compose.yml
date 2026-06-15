@@ -44,8 +44,14 @@ services:
     build:
       context: ${GEOAI_CONTEXT:-../geoai-asset-detection-platform}
       dockerfile: Dockerfile
+      args:
+        PYTORCH_INDEX_URL: ${GEOAI_PYTORCH_INDEX_URL:-https://download.pytorch.org/whl/cu126}
     image: ${GEOAI_IMAGE:-geoai-road-detection-platform:dev}
     container_name: gsb-geoai
+    gpus:
+      - driver: nvidia
+        count: ${GEOAI_NVIDIA_DEVICE_COUNT:-1}
+        capabilities: [gpu]
     depends_on:
       postgis:
         condition: service_healthy
@@ -55,6 +61,8 @@ services:
       GEOAI_DOWNLOAD_HF_MODEL: ${GEOAI_DOWNLOAD_HF_MODEL:-true}
       GEOAI_FETCH_SAMPLE_COG: ${GEOAI_FETCH_SAMPLE_COG:-true}
       GEOAI_CORS_ORIGINS: ${GEOAI_CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:18088,http://127.0.0.1:18088,http://localhost:18192,http://127.0.0.1:18192}
+      NVIDIA_VISIBLE_DEVICES: ${GEOAI_NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${GEOAI_NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
     ports:
       - "${GEOAI_PORT:-8000}:8000"
     volumes:

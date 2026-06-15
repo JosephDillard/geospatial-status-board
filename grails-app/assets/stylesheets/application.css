@@ -33,6 +33,45 @@
     margin: 0.25rem 0 0 0.75rem;
 }
 
+.geospatial-status-board-admin-button {
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 6px;
+    color: #f8fbfd;
+    display: inline-flex;
+    font-size: 0;
+    height: 31px;
+    justify-content: center;
+    line-height: 1;
+    margin: 0.25rem 0 0 0.5rem;
+    text-decoration: none;
+    width: 31px;
+}
+
+.navbar-dark .geospatial-status-board-admin-button {
+    align-items: center;
+    box-sizing: border-box;
+    color: #f8fbfd !important;
+    display: inline-flex;
+    font-size: 0 !important;
+    justify-content: center;
+    padding: 0;
+}
+
+.geospatial-status-board-admin-button svg {
+    display: block;
+    flex: 0 0 auto;
+    height: 17px;
+    width: 17px;
+}
+
+.geospatial-status-board-admin-button:hover,
+.geospatial-status-board-admin-button:focus {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    text-decoration: none;
+}
+
 .geospatial-status-board-page,
 .auth-page {
     min-height: calc(100vh - 122px);
