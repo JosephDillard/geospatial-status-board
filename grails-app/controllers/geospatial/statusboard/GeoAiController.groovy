@@ -5,6 +5,7 @@ import grails.plugin.springsecurity.annotation.Secured
 import groovy.sql.GroovyRowResult
 import groovy.sql.Sql
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 
 import javax.sql.DataSource
 
@@ -150,14 +151,98 @@ class GeoAiController {
     private List<Map> queryJobs(int limit) {
         Sql sql = new Sql(dataSource)
         try {
-            return rowsFor(sql, PERSISTED_JOBS_SQL, limit) ?:
+            List<Map> jobs = rowsFor(sql, PERSISTED_JOBS_SQL, limit) ?:
                 rowsFor(sql, JOBS_ONLY_SQL, limit) ?:
                 rowsFor(sql, FEATURE_JOBS_SQL, limit) ?:
                 rowsFor(sql, BASIC_FEATURE_JOBS_SQL, limit)
+            return jobs ?: queryJobsFromWfs(limit)
+        } catch (Exception ignored) {
+            queryJobsFromWfs(limit)
+        } finally {
+            sql.close()
+        }
+    }
+
+    private List<Map> queryJobsFromWfs(int limit) {
+        Map geoConfig = asMap(grailsApplication.config.geo)
+        Map geoserverConfig = asMap(geoConfig.geoserver)
+        Map detectedLayer = asMap(asMap(geoConfig.layers).detectedRoads)
+        String wfsUrl = geoserverConfig.wfsUrl?.toString()
+        String typeName = detectedLayer.typeName?.toString() ?: 'gsb:detected_roads'
+        int timeoutMs = asInteger(geoserverConfig.requestTimeoutMs, 5000)
+        int maxFeatures = Math.max(limit, asInteger(detectedLayer.maxFeatures, 5000))
+
+        if (!wfsUrl || !typeName) {
+            return []
+        }
+
+        Map query = [
+            service     : 'WFS',
+            version     : '1.0.0',
+            request     : 'GetFeature',
+            typeName    : typeName,
+            propertyName: 'job_id,workflow_id,loaded_at',
+            outputFormat: 'application/json',
+            maxFeatures : maxFeatures
+        ]
+        String separator = wfsUrl.contains('?') ? '&' : '?'
+        String requestUrl = "${wfsUrl}${separator}${query.collect { String key, Object value ->
+            "${encodeQueryParam(key)}=${encodeQueryParam(value)}"
+        }.join('&')}"
+
+        HttpURLConnection connection = null
+        try {
+            connection = new URL(requestUrl).openConnection() as HttpURLConnection
+            connection.connectTimeout = timeoutMs
+            connection.readTimeout = timeoutMs
+            connection.requestMethod = 'GET'
+            connection.setRequestProperty('Accept', 'application/json')
+
+            int code = connection.responseCode
+            if (code < 200 || code >= 300) {
+                return []
+            }
+
+            def payload = new JsonSlurper().parseText(readResponse(connection, code) ?: '{}')
+            Map<String, Map> jobsById = [:]
+            (payload.features ?: []).each { Object feature ->
+                Map properties = asMap(asMap(feature).properties)
+                String jobId = properties.job_id?.toString()?.trim()
+                if (jobId) {
+                    Map job = jobsById[jobId]
+                    if (!job) {
+                        job = [
+                            id           : jobId,
+                            job_id       : jobId,
+                            workflow_id  : '',
+                            feature_count: 0L,
+                            loaded_at    : '',
+                            status       : 'loaded'
+                        ]
+                        jobsById[jobId] = job
+                    }
+
+                    job.feature_count = (job.feature_count as Long) + 1L
+                    if (!job.workflow_id && properties.workflow_id) {
+                        job.workflow_id = properties.workflow_id.toString()
+                    }
+                    String loadedAt = properties.loaded_at?.toString() ?: ''
+                    if (loadedAt && (!job.loaded_at || loadedAt > job.loaded_at.toString())) {
+                        job.loaded_at = loadedAt
+                    }
+                }
+            }
+
+            jobsById.values()
+                .sort { Map left, Map right ->
+                    int loadedCompare = (right.loaded_at?.toString() ?: '') <=> (left.loaded_at?.toString() ?: '')
+                    loadedCompare ?: ((right.job_id?.toString() ?: '') <=> (left.job_id?.toString() ?: ''))
+                }
+                .take(limit)
         } catch (Exception ignored) {
             []
         } finally {
-            sql.close()
+            connection?.disconnect()
         }
     }
 
@@ -187,6 +272,10 @@ class GeoAiController {
 
     private String encodePathSegment(String value) {
         URLEncoder.encode(value, 'UTF-8').replace('+', '%20')
+    }
+
+    private String encodeQueryParam(Object value) {
+        URLEncoder.encode(value?.toString() ?: '', 'UTF-8')
     }
 
     private void renderJson(Map payload) {

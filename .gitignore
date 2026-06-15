@@ -13,3 +13,4 @@ out/
 .assetcache
 .env
 grails*.log
+logs/*.log

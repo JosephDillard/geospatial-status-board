@@ -477,14 +477,24 @@
         };
     }
 
+    function mergeLayerFilterOptions(existingOptions, newOptions) {
+        var seen = {};
+        var merged = [];
+        (existingOptions || []).concat(newOptions || []).map(normalizeLayerFilterOption).forEach(function (option) {
+            if (!option.value || seen[option.value]) {
+                return;
+            }
+            seen[option.value] = true;
+            merged.push(option);
+        });
+        return merged;
+    }
+
     function rememberPersistedLayerFilterOption(key, option) {
         if (!option || !option.value) {
             return;
         }
-        var options = persistedLayerFilterOptions[key] || [];
-        persistedLayerFilterOptions[key] = [option].concat(options.filter(function (existing) {
-            return existing.value !== option.value;
-        }));
+        persistedLayerFilterOptions[key] = mergeLayerFilterOptions([option], persistedLayerFilterOptions[key] || []);
         refreshLayerFilterOptions(key);
     }
 
@@ -508,7 +518,11 @@
         var url = jobsUrl + (jobsUrl.indexOf('?') >= 0 ? '&' : '?') + 'limit=200';
         return geoAiFetch(url)
             .then(function (payload) {
-                persistedLayerFilterOptions.detectedRoads = (payload.jobs || []).map(geoAiJobOption);
+                var jobs = (payload.jobs || []).map(geoAiJobOption);
+                persistedLayerFilterOptions.detectedRoads = mergeLayerFilterOptions(
+                    jobs,
+                    persistedLayerFilterOptions.detectedRoads || []
+                );
                 refreshLayerFilterOptions('detectedRoads');
             })
             .catch(function () {
@@ -2072,6 +2086,21 @@
         };
     }
 
+    function currentLayerFilterOptions(select) {
+        if (!select) {
+            return [];
+        }
+        return Array.prototype.slice.call(select.options || []).filter(function (option) {
+            return option.value;
+        }).map(function (option) {
+            return {
+                value: option.value,
+                label: option.textContent || option.value,
+                title: option.title || option.value
+            };
+        });
+    }
+
     function rawLayerFilterOptions(key, rawData) {
         var layer = config.layers[key] || {};
         var field = layer.filterField;
@@ -2095,7 +2124,7 @@
 
         var selected = layerFilters[key] || select.value || '';
         var seen = {};
-        var normalized = (options || []).map(normalizeLayerFilterOption).filter(function (option) {
+        var normalized = mergeLayerFilterOptions(options || [], currentLayerFilterOptions(select)).filter(function (option) {
             if (!option.value || seen[option.value]) {
                 return false;
             }
