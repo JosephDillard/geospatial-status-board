@@ -134,10 +134,10 @@
                 <button id="geo-ai-toggle"
                         type="button"
                         class="geo-map-square-button geo-ai-toggle"
-                        aria-label="GeoAI request"
+                        aria-label="LLM request"
                         aria-expanded="false"
-                        title="GeoAI request">
-                    AI
+                        title="LLM request">
+                    LLM
                 </button>
                 <aside id="geo-ai-panel" class="geo-ai-panel" aria-label="GeoAI request" hidden>
                     <div class="geo-ai-panel-header">
