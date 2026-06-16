@@ -15,6 +15,7 @@ class MapController {
         Map viewerConfig = asMap(geoConfig.viewer)
         Map geoserverConfig = asMap(geoConfig.geoserver)
         Map geoaiConfig = asMap(geoConfig.geoai)
+        Map gatewayConfig = asMap(geoConfig.gateway)
         Map layers = normalizeLayers(asMap(geoConfig.layers), asInteger(viewerConfig.maxFeatures, 500))
         Map externalLayers = normalizeExternalLayers(asMap(geoConfig.externalLayers))
         Map basemaps = normalizeBasemaps(asMap(viewerConfig.basemaps), viewerConfig)
@@ -57,6 +58,12 @@ class MapController {
                 runStatusUrlBase: createLink(uri: '/geoAi/runs') + '/',
                 apiUrl          : geoaiConfig.apiUrl?.toString() ?: '',
                 requestTimeoutMs: asInteger(geoaiConfig.requestTimeoutMs, 5000)
+            ],
+            gateway         : [
+                enabled         : asBoolean(gatewayConfig.enabled, true),
+                hubUrl          : gatewayConfig.hubUrl?.toString() ?: '',
+                reconnectDelayMs: asInteger(gatewayConfig.reconnectDelayMs, 5000),
+                eventName       : gatewayConfig.eventName?.toString() ?: 'layer.refresh_requested'
             ],
             tools           : tools,
             coordinateDigits: viewerConfig.coordinateDigits ?: 6,

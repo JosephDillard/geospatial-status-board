@@ -381,6 +381,9 @@
     var geoAiCurrentRunId = null;
     var geoAiPollTimer = null;
     var geoAiRunActive = false;
+    var gatewaySocket = null;
+    var gatewayReconnectTimer = null;
+    var gatewayConnected = false;
 
     function setStatus(message, isError) {
         var collapsed = statusEl.classList.contains('is-collapsed');
@@ -440,6 +443,201 @@
 
     function geoAiConfig() {
         return config.geoai || {};
+    }
+
+    function gatewayConfig() {
+        return config.gateway || {};
+    }
+
+    function signalRRecordSeparator() {
+        return String.fromCharCode(0x1e);
+    }
+
+    function gatewayValue(payload, camelName) {
+        if (!payload) {
+            return null;
+        }
+        var pascalName = camelName.charAt(0).toUpperCase() + camelName.slice(1);
+        return payload[camelName] != null ? payload[camelName] : payload[pascalName];
+    }
+
+    function gatewayHubBaseUrl() {
+        return String(gatewayConfig().hubUrl || '').replace(/\/+$/, '');
+    }
+
+    function gatewayNegotiateUrl() {
+        var url = new URL(gatewayHubBaseUrl(), window.location.href);
+        url.pathname = url.pathname.replace(/\/$/, '') + '/negotiate';
+        url.searchParams.set('negotiateVersion', '1');
+        return url.toString();
+    }
+
+    function gatewayWebSocketUrl(connectionToken) {
+        var url = new URL(gatewayHubBaseUrl(), window.location.href);
+        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        if (connectionToken) {
+            url.searchParams.set('id', connectionToken);
+        }
+        return url.toString();
+    }
+
+    function gatewayTypeNameTable(value) {
+        var text = String(value || '').trim();
+        if (!text) {
+            return '';
+        }
+        var parts = text.split(':');
+        text = parts[parts.length - 1];
+        parts = text.split('.');
+        return parts[parts.length - 1].toLowerCase();
+    }
+
+    function gatewayLayerKeyForPayload(payload) {
+        var explicitKey = gatewayValue(payload, 'layerKey');
+        if (explicitKey && (config.layers || {})[explicitKey]) {
+            return explicitKey;
+        }
+
+        var targetTypeName = gatewayValue(payload, 'targetTypeName');
+        var targetTable = gatewayValue(payload, 'targetTable');
+        var targetTypeTable = gatewayTypeNameTable(targetTypeName);
+        var table = gatewayTypeNameTable(targetTable);
+        return Object.keys(config.layers || {}).find(function (key) {
+            var layer = config.layers[key] || {};
+            var layerTable = gatewayTypeNameTable(layer.typeName);
+            return (targetTypeName && String(layer.typeName || '').toLowerCase() === String(targetTypeName).toLowerCase()) ||
+                (targetTypeTable && layerTable === targetTypeTable) ||
+                (table && layerTable === table);
+        }) || null;
+    }
+
+    function gatewayFilterValue(payload) {
+        var explicitFilter = gatewayValue(payload, 'filterValue');
+        if (explicitFilter) {
+            return explicitFilter;
+        }
+        return gatewayValue(payload, 'jobId');
+    }
+
+    function refreshLayerFromGatewayPayload(payload) {
+        var key = gatewayLayerKeyForPayload(payload);
+        if (!key) {
+            setStatus('Gateway live event received, but no matching map layer is configured.');
+            return;
+        }
+
+        var layer = config.layers[key] || {};
+        var filterValue = gatewayFilterValue(payload);
+        if (layer.filterField && filterValue) {
+            filterValue = String(filterValue);
+            layerFilters[key] = filterValue;
+            rememberPersistedLayerFilterOption(key, {
+                value: filterValue,
+                label: 'Job ' + shortRunId(filterValue),
+                title: filterValue
+            });
+            var filter = layerFilterSelect(key);
+            if (filter) {
+                filter.value = filterValue;
+            }
+        }
+
+        var checkbox = document.querySelector('[data-layer-kind="internal"][data-layer-key="' + key + '"]');
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+        if ((internalLayerState[key] || {}).loaded) {
+            removeInternalLayer(key);
+        }
+        loadInternalLayer(key);
+        setStatus('Gateway requested refresh for ' + (layer.title || key) +
+            (filterValue ? ' job ' + shortRunId(filterValue) : '') + '.');
+    }
+
+    function handleGatewayInvocation(target, args) {
+        var configuredEvent = String(gatewayConfig().eventName || 'layer.refresh_requested').toLowerCase();
+        if (String(target || '').toLowerCase() === configuredEvent) {
+            refreshLayerFromGatewayPayload((args || [])[0] || {});
+        }
+    }
+
+    function handleGatewaySocketMessage(event) {
+        String(event.data || '').split(signalRRecordSeparator()).forEach(function (frame) {
+            if (!frame) {
+                return;
+            }
+            var message = JSON.parse(frame);
+            if (message.type === 1 && message.target) {
+                handleGatewayInvocation(message.target, message.arguments || []);
+            }
+        });
+    }
+
+    function scheduleGatewayReconnect() {
+        if (!gatewayConfig().enabled || gatewayReconnectTimer) {
+            return;
+        }
+        gatewayReconnectTimer = window.setTimeout(function () {
+            gatewayReconnectTimer = null;
+            connectGatewayUpdates();
+        }, Number(gatewayConfig().reconnectDelayMs || 5000));
+    }
+
+    function openGatewaySocket(connectionToken) {
+        var socket = new WebSocket(gatewayWebSocketUrl(connectionToken));
+        gatewaySocket = socket;
+        socket.onopen = function () {
+            gatewayConnected = true;
+            socket.send(JSON.stringify({ protocol: 'json', version: 1 }) + signalRRecordSeparator());
+            setStatus('Connected to Geospatial Data Gateway live stream.');
+        };
+        socket.onmessage = handleGatewaySocketMessage;
+        socket.onclose = function () {
+            gatewayConnected = false;
+            if (gatewaySocket === socket) {
+                gatewaySocket = null;
+            }
+            scheduleGatewayReconnect();
+        };
+        socket.onerror = function () {
+            if (!gatewayConnected) {
+                setStatus('Geospatial Data Gateway live stream is unavailable; retrying.');
+            }
+        };
+    }
+
+    function connectGatewayUpdates() {
+        if (!gatewayConfig().enabled || !gatewayHubBaseUrl()) {
+            return;
+        }
+        if (!window.fetch || !window.WebSocket) {
+            setStatus('This browser cannot connect to the gateway live stream.', true);
+            return;
+        }
+        if (gatewaySocket && (gatewaySocket.readyState === WebSocket.OPEN || gatewaySocket.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
+
+        fetch(gatewayNegotiateUrl(), {
+            method: 'POST',
+            credentials: 'omit',
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Gateway negotiate returned HTTP ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function (payload) {
+                openGatewaySocket(payload.connectionToken || payload.connectionId || '');
+            })
+            .catch(function () {
+                setStatus('Geospatial Data Gateway live stream is unavailable; retrying.');
+                scheduleGatewayReconnect();
+            });
     }
 
     function formatGeoAiJobTime(value) {
@@ -3013,6 +3211,7 @@
                 toggleExternalLayer(key, true);
             }
         });
+        connectGatewayUpdates();
     });
 
     map.on('click', function (event) {

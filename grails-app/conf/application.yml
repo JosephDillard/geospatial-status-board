@@ -99,6 +99,11 @@ geo:
         apiUrl: "${GEOAI_API_URL:http://localhost:8000}"
         healthUrl: "${GEOAI_HEALTH_URL:http://localhost:8000/health}"
         requestTimeoutMs: "${GEOAI_REQUEST_TIMEOUT_MS:10000}"
+    gateway:
+        enabled: "${GEOSPATIAL_GATEWAY_SIGNALR_ENABLED:true}"
+        hubUrl: "${GEOSPATIAL_GATEWAY_HUB_URL:http://localhost:7070/hubs/geospatial-updates}"
+        reconnectDelayMs: "${GEOSPATIAL_GATEWAY_RECONNECT_DELAY_MS:5000}"
+        eventName: "${GEOSPATIAL_GATEWAY_LAYER_REFRESH_EVENT:layer.refresh_requested}"
     viewer:
         provider: maplibre
         mapLibreJsUrl: https://unpkg.com/maplibre-gl/dist/maplibre-gl.js

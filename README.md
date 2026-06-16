@@ -312,6 +312,25 @@ adds a job filter under that layer when `job_id` values are present. The COG
 inventory footprint table is `public.geoai_cog_footprints` and is exposed as
 `COG Footprints`.
 
+The map can also subscribe to the companion Geospatial Data Gateway's local SignalR
+hub and refresh a configured WFS layer when the gateway broadcasts
+`layer.refresh_requested`. Configure it with:
+
+```text
+GEOSPATIAL_GATEWAY_SIGNALR_ENABLED=true
+GEOSPATIAL_GATEWAY_HUB_URL=http://localhost:7070/hubs/geospatial-updates
+```
+
+For a local smoke test while the map is open, trigger a refresh event:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:7070/demo/layer-refresh `
+  -ContentType 'application/json' `
+  -Body '{"layerKey":"detectedRoads","message":"Manual local SignalR demo refresh."}'
+```
+
 The recommended open source GIS stack is:
 
 - PostGIS for geospatial columns and spatial indexes in the operational database.
