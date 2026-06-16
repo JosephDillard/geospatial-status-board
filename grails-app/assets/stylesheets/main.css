@@ -980,8 +980,8 @@ img.grails-logo {
 .geo-filter-fields {
     display: grid;
     gap: 0.65rem;
-    grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.2fr);
-    min-width: min(420px, 100%);
+    grid-template-columns: minmax(150px, 1fr) minmax(140px, 0.9fr) minmax(180px, 1.2fr);
+    min-width: min(620px, 100%);
 }
 
 .geo-filter-fields[hidden] {
@@ -1494,6 +1494,7 @@ img.grails-logo {
 .geo-measure-control,
 .geo-view-control,
 .geo-ai-control,
+.geo-place-search-control,
 .geo-north-control {
     position: relative;
     width: 42px;
@@ -1558,6 +1559,7 @@ img.grails-logo {
 .geo-map-square-button:focus,
 .geo-map-square-button.is-active,
 .geo-ai-toggle.is-active,
+.geo-place-search-toggle.is-active,
 .geo-measure-toggle.is-active {
     background: #38bdf8;
     border-color: #7dd3fc;
@@ -1677,6 +1679,11 @@ img.grails-logo {
 
 .geo-ai-toggle {
     font-size: 0.78rem;
+    letter-spacing: 0;
+}
+
+.geo-place-search-toggle {
+    font-size: 0.7rem;
     letter-spacing: 0;
 }
 
@@ -2165,6 +2172,47 @@ img.grails-logo {
     word-break: break-word;
 }
 
+.geo-place-search-meta,
+.geo-place-search-empty {
+    color: #bfdbfe;
+    font-size: 0.78rem;
+    margin: 0.45rem 0 0;
+}
+
+.geo-place-search-results {
+    color: #ffffff;
+    display: grid;
+    gap: 0.55rem;
+    margin: 0.65rem 0 0;
+    padding-left: 1.15rem;
+}
+
+.geo-place-search-results li {
+    padding-left: 0.15rem;
+}
+
+.geo-place-search-results a {
+    color: #ffffff;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.geo-place-search-results span {
+    color: #bfdbfe;
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-top: 0.1rem;
+}
+
+.geo-place-search-results p {
+    color: #eaf4ff;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    margin: 0.2rem 0 0;
+    overflow-wrap: anywhere;
+}
+
 .geo-map-shell .maplibregl-ctrl-group,
 .geo-map-shell .mapboxgl-ctrl-group {
     background: var(--geo-map-panel-strong);
@@ -2246,6 +2294,11 @@ img.grails-logo {
         left: 8px;
         right: 8px;
         top: 8px;
+    }
+
+    .geo-filter-fields {
+        grid-template-columns: 1fr;
+        min-width: min(100%, 360px);
     }
 
     .geo-map-status.is-collapsed {

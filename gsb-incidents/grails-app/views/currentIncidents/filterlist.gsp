@@ -116,11 +116,11 @@
     </table>
 
     <div class="pagination">
-        <filterpane:paginate total="${currentIncidentsCount}" domainBean="gsb.incidents.Incidents"/>
+        <filterpane:paginate total="${currentIncidentsCount}" domainBean="gsb.incidents.CurrentIncidents"/>
         <filterpane:filterButton text="Filter List"/>
         <filterpane:isFiltered>Filter Applied</filterpane:isFiltered>
     </div>
-    <filterpane:filterPane domain="gsb.incidents.Incidents"
+    <filterpane:filterPane domain="gsb.incidents.CurrentIncidents"
 
                            titleKey="fp.tag.filterPane.titleText"
                            dialog="true"
@@ -129,47 +129,6 @@
                            showTitle="y"
                            filterParams="n"
                            fullAssociationPathFieldNames="true"/>
-
-    <form class="filterselect_gsp" name="filterselect">
-        <span><h2>Filter Incident List</h2></span>
-        <span></span>
-        <span><select name="fieldn" size="1" onChange="fieldname()">
-            <option value="filter?sort=eventDate&max=100&order=desc&filter.op.eventCat=Equal&filter.eventCat=">Sort by...</option>
-            <option value="filter?sort=eventDate&max=100&order=desc&filter.op.eventCat=Equal&filter.eventCat=">Sort by Event Date and Time</option>
-            <option value="filter?sort=createdDate&max=100&order=desc&filter.op.eventCat=Equal&filter.eventCat=">Sort by Created Date and Time</option>
-            <option value="filter?sort=eventType&max=100&order=asc&filter.op.eventCat=Equal&filter.eventCat=">Sort by Incident Type</option>
-        </select></span>
-        <span></span>
-        <span><select name="fieldf" size="1" onChange="fieldfilter()">
-            <option value="Damage">Select Incident Category...</option>
-            <option value="Damage">FACDAM</option>
-            <option value="CBRN">CBRN</option>
-            <option value="ExpHaz">ExpHaz</option>
-            <option value="Protection">Protection</option>
-            <option value="Incidents">Misc. Incidents</option>
-        </select></span>
-        <script type="text/javascript">
-            var url1;
-            var url2;
-
-            function fieldname() {
-                url1 = document.filterselect.fieldn.options[document.filterselect.fieldn.selectedIndex].value;
-                document.filterselect.urlchange.value = url1 + url2;
-            }
-            function fieldfilter() {
-                url2 = document.filterselect.fieldf.options[document.filterselect.fieldf.selectedIndex].value;
-                document.filterselect.urlchange.value = url1 + url2;
-            }
-            function go() {
-                location = url1 + url2;
-
-            }
-
-        </script>
-        <span></span>
-
-        <span><input type="button" name="test" value="Go!" onClick="go()"></span>
-    </form>
 </div>
 
 </body>

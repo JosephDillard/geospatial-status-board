@@ -167,11 +167,9 @@
 				%{--<span></span>--}%
 				%{--<span><select name="fieldf" size="1" onChange="fieldfilter()">--}%
 					%{--<option value="Damage">Select Incident Category...</option>--}%
-					%{--<option value="Damage">FACDAM</option>--}%
 					%{--<option value="CBRN">CBRN</option>--}%
 					%{--<option value="ExpHaz">ExpHaz</option>--}%
 					%{--<option value="Protection">Protection</option>--}%
-					%{--<option value="Incidents">Misc. Incidents</option>--}%
 				%{--</select></span>--}%
 				%{--<script type="text/javascript">--}%
                     %{--var url1;--}%

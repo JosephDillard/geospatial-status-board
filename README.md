@@ -267,7 +267,7 @@ Bootstrap test data is enabled by default outside production. It adds missing sa
 - Runway and airfield surface condition records.
 - Engineer and fire fighting support asset records.
 - Utility status records.
-- Current FACDAM-style incident records.
+- Current incident records.
 - Archived incident records.
 
 Bootstrapped locations include Kirtland AFB, Holloman AFB, Cannon AFB, Albuquerque International Sunport, Roswell Air Center, Spaceport America, Las Cruces International Airport, and other New Mexico airfields.

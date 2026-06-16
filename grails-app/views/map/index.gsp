@@ -17,7 +17,6 @@
             <p>Geospatial view of airport, airfield, and incident status layers.</p>
         </div>
         <g:form controller="map" action="index" method="GET" class="geo-map-form">
-            <input type="hidden" name="layer" value="${selectedLayer}"/>
             <button id="geo-filter-toggle"
                     type="button"
                     class="geo-map-form-toggle"
@@ -25,8 +24,19 @@
                     aria-controls="geo-filter-fields">Filter</button>
             <div id="geo-filter-fields" class="geo-filter-fields"${selectedValue ? '' : ' hidden'}>
                 <div class="geo-map-field">
+                    <label for="layer">Layer</label>
+                    <select id="layer" name="layer">
+                        <g:each in="${layers}" var="entry">
+                            <option value="${entry.key}"${entry.key == selectedLayer ? ' selected' : ''}>${entry.value.title}</option>
+                        </g:each>
+                    </select>
+                </div>
+
+                <div class="geo-map-field">
                     <label for="field">Filter field</label>
-                    <input id="field" name="field" type="text" value="${selectedField}"/>
+                    <select id="field" name="field" data-selected-field="${selectedField}">
+                        <option value="${selectedField}">${selectedField}</option>
+                    </select>
                 </div>
 
                 <div class="geo-map-field">
@@ -128,6 +138,16 @@
                         aria-pressed="false"
                         title="Create incident">
                     <span aria-hidden="true"></span>
+                </button>
+            </div>
+            <div id="geo-place-search-tools" class="geo-place-search-control">
+                <button id="geo-place-search-toggle"
+                        type="button"
+                        class="geo-map-square-button geo-place-search-toggle"
+                        aria-label="Search nearby Wikipedia places"
+                        aria-pressed="false"
+                        title="Search nearby Wikipedia places">
+                    Wiki
                 </button>
             </div>
             <div id="geo-ai-tools" class="geo-ai-control">
@@ -316,6 +336,8 @@
     var basemapMenu = document.getElementById('geo-basemap-menu');
     var filterToggle = document.getElementById('geo-filter-toggle');
     var filterFields = document.getElementById('geo-filter-fields');
+    var filterLayerSelect = document.getElementById('layer');
+    var filterFieldSelect = document.getElementById('field');
     var coordinatePanel = document.getElementById('geo-coordinate-panel');
     var coordinateOutput = document.getElementById('geo-coordinate-output');
     var coordinateFormat = document.getElementById('geo-coordinate-format');
@@ -333,6 +355,8 @@
     var incidentCreateForm = document.getElementById('geo-incident-create-form');
     var incidentCancel = document.getElementById('geo-incident-cancel');
     var incidentSave = document.getElementById('geo-incident-save');
+    var placeSearchTools = document.getElementById('geo-place-search-tools');
+    var placeSearchToggle = document.getElementById('geo-place-search-toggle');
     var geoAiTools = document.getElementById('geo-ai-tools');
     var geoAiToggle = document.getElementById('geo-ai-toggle');
     var geoAiPanel = document.getElementById('geo-ai-panel');
@@ -372,6 +396,7 @@
     var measureMode = false;
     var measurePoints = [];
     var incidentCreateMode = false;
+    var placeSearchMode = false;
     var incidentDraft = null;
     var localIncidentFeatures = [];
     var hoverCoordinate = null;
@@ -439,6 +464,58 @@
         filterFields.hidden = !open;
         filterToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         filterToggle.classList.toggle('is-active', open);
+    }
+
+    function compactFields(values) {
+        var seen = {};
+        return (values || []).filter(function (value) {
+            value = String(value || '').trim();
+            if (!value || seen[value]) {
+                return false;
+            }
+            seen[value] = true;
+            return true;
+        });
+    }
+
+    function filterableFieldsForLayer(layer) {
+        var configuredFields = compactFields(layer.filterFields || []);
+        if (configuredFields.length) {
+            return configuredFields;
+        }
+
+        return compactFields([
+            layer.idField,
+            layer.labelField,
+            layer.filterField,
+            layer.iconField,
+        ].concat(layer.popupFields || []));
+    }
+
+    function filterFieldLabel(field) {
+        return popupLabel(field);
+    }
+
+    function populateTopFilterFields() {
+        if (!filterLayerSelect || !filterFieldSelect) {
+            return;
+        }
+
+        var selectedLayer = (config.layers || {})[filterLayerSelect.value] || {};
+        var selectedField = filterFieldSelect.getAttribute('data-selected-field') || selectedLayer.idField || '';
+        var fields = filterableFieldsForLayer(selectedLayer);
+        if (selectedField && fields.indexOf(selectedField) < 0) {
+            fields.unshift(selectedField);
+        }
+
+        filterFieldSelect.innerHTML = '';
+        fields.forEach(function (field) {
+            var option = document.createElement('option');
+            option.value = field;
+            option.textContent = filterFieldLabel(field);
+            filterFieldSelect.appendChild(option);
+        });
+        filterFieldSelect.value = fields.indexOf(selectedField) >= 0 ? selectedField : (fields[0] || '');
     }
 
     function geoAiConfig() {
@@ -736,6 +813,7 @@
         geoAiToggle.classList.toggle('is-active', open);
         geoAiToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) {
+            setPlaceSearchMode(false);
             setIncidentCreateMode(false);
             setIncidentPanelOpen(false);
             setMeasureMode(false);
@@ -1433,7 +1511,7 @@
 
         if (layer.filterField && layerFilterValue(key)) {
             url.searchParams.set('CQL_FILTER', cqlEquals(layer.filterField, layerFilterValue(key)));
-        } else if (config.filter && config.filter.field && config.filter.value) {
+        } else if (config.selectedLayer === key && config.filter && config.filter.field && config.filter.value) {
             url.searchParams.set('CQL_FILTER', cqlEquals(config.filter.field, config.filter.value));
         }
 
@@ -1499,13 +1577,177 @@
     function popupHtml(feature, layer) {
         var properties = feature.properties || {};
         var title = properties[layer.labelField] || properties[layer.idField] || layer.title;
-        var rows = Object.keys(properties).filter(function (key) {
+        var popupKeys = (layer.popupFields && layer.popupFields.length ? layer.popupFields : Object.keys(properties));
+        var rows = popupKeys.filter(function (key) {
             return key.indexOf('__') !== 0;
         }).slice(0, 12).map(function (key) {
             return '<dt>' + escapeHtml(popupLabel(key)) + '</dt><dd>' + escapeHtml(popupValue(properties[key])) + '</dd>';
         }).join('');
 
         return '<div class="geo-map-popup-title">' + escapeHtml(title) + '</div><dl class="geo-map-popup">' + rows + '</dl>';
+    }
+
+    function placeSearchConfig() {
+        return config.placeSearch || {};
+    }
+
+    function placeSearchLimit() {
+        return Math.max(1, Math.min(Number(placeSearchConfig().resultLimit || 5), 10));
+    }
+
+    function placeSearchRadius() {
+        return Math.max(100, Math.min(Number(placeSearchConfig().wikipediaRadiusMeters || 10000), 10000));
+    }
+
+    function wikipediaTitleUrl(title) {
+        return 'https://en.wikipedia.org/wiki/' + encodeURIComponent(String(title || '').replace(/\s+/g, '_'));
+    }
+
+    function wikipediaGeoSearchUrl(lngLat) {
+        var url = new URL('https://en.wikipedia.org/w/api.php');
+        url.searchParams.set('action', 'query');
+        url.searchParams.set('list', 'geosearch');
+        url.searchParams.set('gscoord', lngLat.lat + '|' + lngLat.lng);
+        url.searchParams.set('gsradius', String(placeSearchRadius()));
+        url.searchParams.set('gslimit', String(placeSearchLimit()));
+        url.searchParams.set('format', 'json');
+        url.searchParams.set('origin', '*');
+        return url.toString();
+    }
+
+    function geonamesWikipediaUrl(lngLat) {
+        var username = String(placeSearchConfig().geonamesUsername || '').trim();
+        if (!username) {
+            return '';
+        }
+        var url = new URL('https://secure.geonames.org/findNearbyWikipediaJSON');
+        url.searchParams.set('lat', lngLat.lat);
+        url.searchParams.set('lng', lngLat.lng);
+        url.searchParams.set('maxRows', String(placeSearchLimit()));
+        url.searchParams.set('username', username);
+        return url.toString();
+    }
+
+    function normalizeWikipediaResults(payload) {
+        return (((payload || {}).query || {}).geosearch || []).map(function (entry) {
+            return {
+                title: entry.title,
+                summary: '',
+                distance: entry.dist != null ? Number(entry.dist) : null,
+                url: wikipediaTitleUrl(entry.title)
+            };
+        });
+    }
+
+    function normalizeGeoNamesResults(payload) {
+        return ((payload || {}).geonames || []).map(function (entry) {
+            return {
+                title: entry.title || entry.name,
+                summary: entry.summary || '',
+                distance: entry.distance != null ? Number(entry.distance) * 1000 : null,
+                url: entry.wikipediaUrl ? 'https://' + String(entry.wikipediaUrl).replace(/^https?:\/\//, '') : wikipediaTitleUrl(entry.title || entry.name)
+            };
+        });
+    }
+
+    function fetchJson(url) {
+        return fetch(url, { credentials: 'omit' }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('Search returned HTTP ' + response.status);
+            }
+            return response.json();
+        });
+    }
+
+    function fetchPlaceResults(lngLat) {
+        var geonamesUrl = geonamesWikipediaUrl(lngLat);
+        if (geonamesUrl) {
+            return fetchJson(geonamesUrl)
+                .then(function (payload) {
+                    var results = normalizeGeoNamesResults(payload);
+                    if (results.length) {
+                        return { source: 'GeoNames Wikipedia', results: results };
+                    }
+                    throw new Error('GeoNames returned no nearby Wikipedia places');
+                })
+                .catch(function () {
+                    return fetchJson(wikipediaGeoSearchUrl(lngLat)).then(function (payload) {
+                        return { source: 'Wikipedia GeoSearch', results: normalizeWikipediaResults(payload) };
+                    });
+                });
+        }
+
+        return fetchJson(wikipediaGeoSearchUrl(lngLat)).then(function (payload) {
+            return { source: 'Wikipedia GeoSearch', results: normalizeWikipediaResults(payload) };
+        });
+    }
+
+    function formatPlaceDistance(meters) {
+        if (meters == null || Number.isNaN(meters)) {
+            return '';
+        }
+        if (meters >= 1609.344) {
+            return (meters / 1609.344).toFixed(1) + ' mi';
+        }
+        return Math.round(meters) + ' m';
+    }
+
+    function placeSearchPopupHtml(payload, lngLat) {
+        var results = (payload.results || []).slice(0, placeSearchLimit());
+        if (!results.length) {
+            return '<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">No nearby Wikipedia places found.</p>';
+        }
+
+        var items = results.map(function (result) {
+            var distance = formatPlaceDistance(result.distance);
+            return '<li><a href="' + escapeHtml(result.url) + '" target="_blank" rel="noopener">' +
+                escapeHtml(result.title || 'Untitled place') + '</a>' +
+                (distance ? '<span>' + escapeHtml(distance) + '</span>' : '') +
+                (result.summary ? '<p>' + escapeHtml(result.summary) + '</p>' : '') +
+                '</li>';
+        }).join('');
+
+        return '<div class="geo-map-popup-title">Nearby Places</div>' +
+            '<div class="geo-place-search-meta">' + escapeHtml(payload.source || 'Wikipedia') +
+            ' near ' + lngLat.lat.toFixed(5) + ', ' + lngLat.lng.toFixed(5) + '</div>' +
+            '<ol class="geo-place-search-results">' + items + '</ol>';
+    }
+
+    function setPlaceSearchMode(active) {
+        placeSearchMode = !!active;
+        if (placeSearchToggle) {
+            placeSearchToggle.classList.toggle('is-active', placeSearchMode);
+            placeSearchToggle.setAttribute('aria-pressed', placeSearchMode ? 'true' : 'false');
+        }
+        if (placeSearchMode) {
+            setMeasureMode(false);
+            setIncidentCreateMode(false);
+            setGeoAiPanelOpen(false);
+            map.getCanvas().style.cursor = 'help';
+            setStatus('Wikipedia search ready. Click a map location to show nearby places.');
+        } else if (map) {
+            map.getCanvas().style.cursor = '';
+        }
+    }
+
+    function showPlaceSearchPopup(lngLat) {
+        var popup = new maplibregl.Popup({
+            className: 'geo-map-feature-popup geo-place-search-popup',
+            maxWidth: '390px'
+        })
+            .setLngLat(lngLat)
+            .setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">Searching...</p>')
+            .addTo(map);
+
+        fetchPlaceResults(lngLat)
+            .then(function (payload) {
+                popup.setHTML(placeSearchPopupHtml(payload, lngLat));
+                setStatus('Nearby place search complete.');
+            })
+            .catch(function (error) {
+                popup.setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">' + escapeHtml(error.message || 'Search failed') + '</p>');
+                setStatus('Nearby place search failed: ' + (error.message || 'Search failed'), true);
+            });
     }
 
     function extendBounds(bounds, coordinates, count) {
@@ -1697,6 +1939,9 @@
 
     function setMeasureMode(enabled) {
         measureMode = enabled;
+        if (measureMode && placeSearchMode) {
+            setPlaceSearchMode(false);
+        }
         if (measureMode && incidentCreateMode) {
             incidentCreateMode = false;
             if (incidentCreateToggle) {
@@ -2072,6 +2317,7 @@
             map.getCanvas().classList.toggle('is-placing-incident', incidentCreateMode);
         }
         if (incidentCreateMode) {
+            setPlaceSearchMode(false);
             setMeasureMode(false);
             setCoordinateCopyMode(false);
             setStatus('Click the map to place an incident.');
@@ -3108,10 +3354,12 @@
         setStatus('GeoServer WFS URL is not configured.', true);
     }
 
+    populateTopFilterFields();
     setFilterOpen(!!(filterFields && !filterFields.hidden));
     populateZoomLevels();
     viewTools.hidden = !config.tools.fitLayer;
     incidentTools.hidden = !config.tools.createIncidents;
+    placeSearchTools.hidden = !config.tools.placeSearch;
     geoAiTools.hidden = !config.tools.geoaiRequests;
     measureTools.hidden = !config.tools.measureDistance;
     drawTools.hidden = true;
@@ -3219,6 +3467,10 @@
             placeIncidentDraft(event.lngLat);
             return;
         }
+        if (placeSearchMode) {
+            showPlaceSearchPopup(event.lngLat);
+            return;
+        }
         if (config.tools.coordinates) {
             updateCoordinateReadout(event.lngLat);
         }
@@ -3265,6 +3517,10 @@
             map.getCanvas().style.cursor = 'crosshair';
             return;
         }
+        if (placeSearchMode) {
+            map.getCanvas().style.cursor = 'help';
+            return;
+        }
         var layerIds = allInternalRenderLayerIds().concat(allExternalRenderLayerIds());
         if (!layerIds.length) {
             map.getCanvas().style.cursor = '';
@@ -3292,6 +3548,14 @@
     if (filterToggle) {
         filterToggle.addEventListener('click', function () {
             setFilterOpen(filterFields.hidden);
+        });
+    }
+    if (filterLayerSelect) {
+        filterLayerSelect.addEventListener('change', function () {
+            if (filterFieldSelect) {
+                filterFieldSelect.setAttribute('data-selected-field', '');
+            }
+            populateTopFilterFields();
         });
     }
     if (basemapToggle) {
@@ -3326,6 +3590,7 @@
     if (measureToggle) {
         measureToggle.addEventListener('click', function () {
             setGeoAiPanelOpen(false);
+            setPlaceSearchMode(false);
             setMeasureMode(!measureMode);
         });
     }
@@ -3335,9 +3600,15 @@
     if (incidentCreateToggle) {
         incidentCreateToggle.addEventListener('click', function () {
             setGeoAiPanelOpen(false);
+            setPlaceSearchMode(false);
             setIncidentPanelOpen(false);
             clearIncidentDraft();
             setIncidentCreateMode(!incidentCreateMode);
+        });
+    }
+    if (placeSearchToggle) {
+        placeSearchToggle.addEventListener('click', function () {
+            setPlaceSearchMode(!placeSearchMode);
         });
     }
     if (incidentCreateClose) {

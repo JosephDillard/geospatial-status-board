@@ -18,7 +18,7 @@
     </ul>
 </div>
 
-<div id="archiveTitle"><h1>Incident Archive List</h1></div>
+<div id="archiveTitle"><h1>Archive Incidents</h1></div>
 <table id="showArchiveTable">
     <thead>
     <tr>
@@ -66,7 +66,7 @@
 
     <g:each in="${archiveList}" status="i" var="archiveIncidents">
         <tr class="${(i % 2) == 0 ? 'even' : 'odd'}">
-            <td><g:link controller="incidentsarchive" action="show" id="${archiveIncidents.id}">${fieldValue(bean: archiveIncidents, field: "objectid_1")}</g:link></td>
+            <td><g:link controller="archiveIncidents" action="show" id="${archiveIncidents.id}">${fieldValue(bean: archiveIncidents, field: "objectid_1")}</g:link></td>
 
             <td>${fieldValue(bean: archiveIncidents, field: "archiveAction")}</td>
 

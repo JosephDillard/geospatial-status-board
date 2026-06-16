@@ -52,28 +52,28 @@ BEGIN
             ON public.utility_status USING GIST (geom);
     END IF;
 
-    IF to_regclass('public.afim_event_point_bm0914') IS NOT NULL THEN
-        ALTER TABLE public.afim_event_point_bm0914
+    IF to_regclass('public.current_incidents') IS NOT NULL THEN
+        ALTER TABLE public.current_incidents
             ADD COLUMN IF NOT EXISTS geom geometry(Geometry, 4326),
             ADD COLUMN IF NOT EXISTS workflow_status varchar(64);
-        CREATE INDEX IF NOT EXISTS afim_event_point_bm0914_geom_gix
-            ON public.afim_event_point_bm0914 USING GIST (geom);
+        CREATE INDEX IF NOT EXISTS current_incidents_geom_gix
+            ON public.current_incidents USING GIST (geom);
     END IF;
 
-    IF to_regclass('public.afim_event_archive') IS NOT NULL THEN
-        ALTER TABLE public.afim_event_archive
+    IF to_regclass('public.archive_incidents') IS NOT NULL THEN
+        ALTER TABLE public.archive_incidents
             ADD COLUMN IF NOT EXISTS geom geometry(Geometry, 4326),
             ADD COLUMN IF NOT EXISTS workflow_status varchar(64),
             ADD COLUMN IF NOT EXISTS archive_action varchar(32),
             ADD COLUMN IF NOT EXISTS archived_at timestamp,
             ADD COLUMN IF NOT EXISTS archived_by varchar(255),
             ADD COLUMN IF NOT EXISTS source_current_id bigint;
-        CREATE INDEX IF NOT EXISTS afim_event_archive_geom_gix
-            ON public.afim_event_archive USING GIST (geom);
-        CREATE INDEX IF NOT EXISTS afim_event_archive_source_current_id_idx
-            ON public.afim_event_archive (source_current_id);
-        CREATE INDEX IF NOT EXISTS afim_event_archive_archived_at_idx
-            ON public.afim_event_archive (archived_at);
+        CREATE INDEX IF NOT EXISTS archive_incidents_geom_gix
+            ON public.archive_incidents USING GIST (geom);
+        CREATE INDEX IF NOT EXISTS archive_incidents_source_current_id_idx
+            ON public.archive_incidents (source_current_id);
+        CREATE INDEX IF NOT EXISTS archive_incidents_archived_at_idx
+            ON public.archive_incidents (archived_at);
     END IF;
 END $$;
 
@@ -133,13 +133,13 @@ FROM pg_temp.gsb_dev_airfield_locations source
 WHERE target.airfield_name = source.site_name
   AND target.geom IS NULL;
 
-UPDATE public.afim_event_point_bm0914 target
+UPDATE public.current_incidents target
 SET geom = ST_SetSRID(ST_MakePoint(source.lon + 0.0150, source.lat - 0.0100), 4326)
 FROM pg_temp.gsb_dev_airfield_locations source
 WHERE target.base = source.site_name
   AND target.geom IS NULL;
 
-UPDATE public.afim_event_archive target
+UPDATE public.archive_incidents target
 SET geom = ST_SetSRID(ST_MakePoint(source.lon - 0.0140, source.lat - 0.0100), 4326)
 FROM pg_temp.gsb_dev_airfield_locations source
 WHERE target.base = source.site_name

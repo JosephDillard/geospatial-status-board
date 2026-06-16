@@ -53,7 +53,7 @@ class CurrentIncidents {
         workflowStatus column: 'WORKFLOW_STATUS'
         //incidentId column: 'OBJECTID_1'
         version false
-        table 'AFIM_EVENT_POINT_BM0914'
+        table 'current_incidents'
         datasource 'geodbthree'
     }
 }

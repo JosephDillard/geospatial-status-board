@@ -53,12 +53,6 @@ class BootStrap {
             'Security Forces',
             'Weather Flight'
         ])
-        seedLookupCategory('facdam.repairStatus', [
-            'Not Assessed',
-            'In Progress',
-            'Complete'
-        ])
-
         if (seedDevelopmentData()) {
             seedCurrentIncidentData()
             seedArchivedIncidentData()
@@ -102,7 +96,7 @@ class BootStrap {
     }
 
     private void seedCurrentIncidentData() {
-        FACDAMIncidents.withTransaction {
+        CurrentIncidents.withTransaction {
             Date now = new Date()
             List<Map> records = [
                 [
@@ -143,7 +137,7 @@ class BootStrap {
                     repairMethod: 'Saw-cut and patch affected pavement.',
                     beNumber: 'BE-RWY-014',
                     catCode: '111',
-                    remark1: 'Synthetic FACDAM test record.'
+                    remark1: 'Synthetic current incident record.'
                 ],
                 [
                     incidentId: 'INC-NM-0003',
@@ -228,9 +222,9 @@ class BootStrap {
             ]
 
             records.eachWithIndex { Map record, int index ->
-                if (!FACDAMIncidents.findByIncidentId(record.incidentId as String)) {
+                if (!CurrentIncidents.findByIncidentId(record.incidentId as String)) {
                     Date eventDate = daysAgo(now, index)
-                    new FACDAMIncidents(
+                    new CurrentIncidents(
                         incidentId: record.incidentId,
                         eventType: record.eventType,
                         eventDate: eventDate,
@@ -251,17 +245,7 @@ class BootStrap {
                         createdDate: eventDate,
                         eventSourceHan: 'Status App',
                         eventCat: record.eventCat,
-                        workflowStatus: IncidentWorkflowStatus.NEW,
-                        sector: record.sector,
-                        repairStatus: record.repairStatus,
-                        currentProgress: record.currentProgress,
-                        repairResponsibility: record.repairResponsibility,
-                        repairMethod: record.repairMethod,
-                        beNumber: record.beNumber,
-                        catCode: record.catCode,
-                        remark1: record.remark1,
-                        remark2: '',
-                        remark3: ''
+                        workflowStatus: IncidentWorkflowStatus.NEW
                     ).save(failOnError: true)
                 }
             }
@@ -269,7 +253,7 @@ class BootStrap {
     }
 
     private void seedArchivedIncidentData() {
-        Incidents.withTransaction {
+        ArchiveIncidents.withTransaction {
             Date now = new Date()
             List<Map> records = [
                 [incidentId: 'ARC-NM-0001', eventType: 'Weather', eventName: 'Dust advisory', eventDesc: 'Archived training record for a dust advisory near Holloman.', mgrsCoord: '13SCS2384120931', base: 'Holloman AFB', sigEvent: 'No', airOpsAffected: 'Yes', source: 'Weather Flight', eventCat: 'Weather'],
@@ -283,9 +267,9 @@ class BootStrap {
             ]
 
             records.eachWithIndex { Map record, int index ->
-                if (!Incidents.findByIncidentId(record.incidentId as String)) {
+                if (!ArchiveIncidents.findByIncidentId(record.incidentId as String)) {
                     Date eventDate = daysAgo(now, index + 7)
-                    new Incidents(
+                    new ArchiveIncidents(
                         objectid_1: index + 1L,
                         incidentId: record.incidentId,
                         eventType: record.eventType,

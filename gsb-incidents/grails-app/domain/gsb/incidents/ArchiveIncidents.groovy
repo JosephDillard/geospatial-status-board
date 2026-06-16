@@ -1,6 +1,6 @@
 package gsb.incidents
 
-class Incidents {
+class ArchiveIncidents {
     Long objectid_1
     String incidentId
     String eventType
@@ -61,7 +61,7 @@ class Incidents {
         archivedBy column: 'ARCHIVED_BY'
         sourceCurrentId column: 'SOURCE_CURRENT_ID'
         //incidentId column: 'OBJECTID_1'
-        table "AFIM_EVENT_ARCHIVE"
+        table "archive_incidents"
         datasource 'geodbthree'
 
     }

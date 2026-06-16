@@ -162,6 +162,7 @@ geo:
             fitLayer: true
             createIncidents: true
             geoaiRequests: true
+            placeSearch: true
         center:
             - -106.0
             - 34.5
@@ -350,24 +351,50 @@ geo:
             maxFeatures: 5000
         currentIncidents:
             title: Current Incidents
-            category: Incidents
-            typeName: 'gsb:afim_event_point_bm0914'
+            category: Incident Tracking
+            typeName: 'gsb:current_incidents'
             idField: mgrs_coord
             labelField: incident_id
             geometryType: Geometry
             color: '#b91c1c'
             iconSet: femaIncident
             iconField: event_type
-        incidentsArchive:
-            title: Incident Archive
-            category: Incidents
-            typeName: 'gsb:afim_event_archive'
+            popupFields:
+                - incident_id
+                - workflow_status
+                - event_type
+                - event_cat
+                - event_name
+                - event_desc
+                - mgrs_coord
+                - base
+                - sig_event
+                - air_ops_affected
+                - source
+                - updated_by
+        archiveIncidents:
+            title: Archive Incidents
+            category: Incident Tracking
+            typeName: 'gsb:archive_incidents'
             idField: mgrs_coord
             labelField: incident_id
             geometryType: Geometry
             color: '#9333ea'
             iconSet: femaIncident
             iconField: event_type
+            popupFields:
+                - incident_id
+                - archive_action
+                - workflow_status
+                - event_type
+                - event_cat
+                - event_name
+                - event_desc
+                - mgrs_coord
+                - base
+                - sig_event
+                - air_ops_affected
+                - archived_at
 hibernate:
     cache:
         queries: false

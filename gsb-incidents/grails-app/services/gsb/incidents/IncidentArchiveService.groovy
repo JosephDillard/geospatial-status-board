@@ -8,6 +8,9 @@ import java.text.SimpleDateFormat
 
 class IncidentArchiveService {
 
+    private static final String CURRENT_INCIDENTS_TABLE = 'current_incidents'
+    private static final String ARCHIVE_INCIDENTS_TABLE = 'archive_incidents'
+
     def dataSource_geodbthree
 
     List<String> getWorkflowStatuses() {
@@ -20,16 +23,16 @@ class IncidentArchiveService {
 
     void ensureIncidentAuditColumns() {
         withSql { Sql sql, Connection connection ->
-            ensureColumn(sql, 'AFIM_EVENT_POINT_BM0914', 'WORKFLOW_STATUS', 'varchar(64)')
-            ensureColumn(sql, 'AFIM_EVENT_ARCHIVE', 'WORKFLOW_STATUS', 'varchar(64)')
-            ensureColumn(sql, 'AFIM_EVENT_ARCHIVE', 'ARCHIVE_ACTION', 'varchar(32)')
-            ensureColumn(sql, 'AFIM_EVENT_ARCHIVE', 'ARCHIVED_AT', 'timestamp')
-            ensureColumn(sql, 'AFIM_EVENT_ARCHIVE', 'ARCHIVED_BY', 'varchar(255)')
-            ensureColumn(sql, 'AFIM_EVENT_ARCHIVE', 'SOURCE_CURRENT_ID', 'bigint')
+            ensureColumn(sql, CURRENT_INCIDENTS_TABLE, 'WORKFLOW_STATUS', 'varchar(64)')
+            ensureColumn(sql, ARCHIVE_INCIDENTS_TABLE, 'WORKFLOW_STATUS', 'varchar(64)')
+            ensureColumn(sql, ARCHIVE_INCIDENTS_TABLE, 'ARCHIVE_ACTION', 'varchar(32)')
+            ensureColumn(sql, ARCHIVE_INCIDENTS_TABLE, 'ARCHIVED_AT', 'timestamp')
+            ensureColumn(sql, ARCHIVE_INCIDENTS_TABLE, 'ARCHIVED_BY', 'varchar(255)')
+            ensureColumn(sql, ARCHIVE_INCIDENTS_TABLE, 'SOURCE_CURRENT_ID', 'bigint')
 
             if (isPostgres(connection)) {
-                sql.execute('CREATE INDEX IF NOT EXISTS afim_event_archive_source_current_id_idx ON AFIM_EVENT_ARCHIVE (SOURCE_CURRENT_ID)')
-                sql.execute('CREATE INDEX IF NOT EXISTS afim_event_archive_archived_at_idx ON AFIM_EVENT_ARCHIVE (ARCHIVED_AT)')
+                sql.execute("CREATE INDEX IF NOT EXISTS archive_incidents_source_current_id_idx ON ${ARCHIVE_INCIDENTS_TABLE} (SOURCE_CURRENT_ID)".toString())
+                sql.execute("CREATE INDEX IF NOT EXISTS archive_incidents_archived_at_idx ON ${ARCHIVE_INCIDENTS_TABLE} (ARCHIVED_AT)".toString())
             }
         }
     }
@@ -45,11 +48,11 @@ class IncidentArchiveService {
             Long objectId = nextCurrentObjectId(sql)
             values.id = objectId
             sql.executeUpdate(
-                '''INSERT INTO AFIM_EVENT_POINT_BM0914 (
+                """INSERT INTO ${CURRENT_INCIDENTS_TABLE} (
                     OBJECTID_1, INCIDENT_ID, EVENT_TYPE, EVENT_CAT, EVENT_NAME, EVENT_DESC, EVENT_DESC_HAN,
                     MGRS_COORD, BASE, SIG_EVENT, AIR_OPS_AFFECTED, SOURCE, ENTERED, UPDATED_BY,
                     HIDDEN_BY, HIDDEN, UPDATED_DATE, CREATED_BY, CREATED_DATE, EVENT_SOURCE_HAN, WORKFLOW_STATUS
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""".toString(),
                 [
                     objectId,
                     values.incidentId,
@@ -92,11 +95,11 @@ class IncidentArchiveService {
 
         int updated = withSql { Sql sql, Connection connection ->
             sql.executeUpdate(
-                '''UPDATE AFIM_EVENT_POINT_BM0914
+                """UPDATE ${CURRENT_INCIDENTS_TABLE}
                    SET INCIDENT_ID = ?, EVENT_TYPE = ?, EVENT_CAT = ?, EVENT_NAME = ?, EVENT_DESC = ?,
                        MGRS_COORD = ?, BASE = ?, SIG_EVENT = ?, AIR_OPS_AFFECTED = ?, SOURCE = ?,
                        UPDATED_BY = ?, UPDATED_DATE = ?, WORKFLOW_STATUS = ?
-                   WHERE OBJECTID_1 = ?''',
+                   WHERE OBJECTID_1 = ?""".toString(),
                 [
                     values.incidentId,
                     values.eventType,
@@ -133,7 +136,7 @@ class IncidentArchiveService {
         String actor = username ?: 'system'
         Map archiveResult = archiveCurrentIncidentById(currentIncidentId, 'DELETED', actor)
         int deleted = withSql { Sql sql, Connection connection ->
-            sql.executeUpdate('DELETE FROM AFIM_EVENT_POINT_BM0914 WHERE OBJECTID_1 = ?', [currentIncidentId])
+            sql.executeUpdate("DELETE FROM ${CURRENT_INCIDENTS_TABLE} WHERE OBJECTID_1 = ?".toString(), [currentIncidentId])
         } as int
 
         [found: deleted > 0 || archiveResult.archived, id: currentIncidentId]
@@ -150,13 +153,13 @@ class IncidentArchiveService {
         String status = normalizeWorkflowStatus(workflowStatus)
 
         Map current = withSql { Sql sql, Connection connection ->
-            def row = sql.firstRow('SELECT INCIDENT_ID FROM AFIM_EVENT_POINT_BM0914 WHERE OBJECTID_1 = ?', [currentIncidentId])
+            def row = sql.firstRow("SELECT INCIDENT_ID FROM ${CURRENT_INCIDENTS_TABLE} WHERE OBJECTID_1 = ?".toString(), [currentIncidentId])
             if (!row) {
                 return [found: false]
             }
 
             sql.executeUpdate(
-                'UPDATE AFIM_EVENT_POINT_BM0914 SET WORKFLOW_STATUS = ?, UPDATED_DATE = ?, UPDATED_BY = ? WHERE OBJECTID_1 = ?',
+                "UPDATE ${CURRENT_INCIDENTS_TABLE} SET WORKFLOW_STATUS = ?, UPDATED_DATE = ?, UPDATED_BY = ? WHERE OBJECTID_1 = ?".toString(),
                 [status, timestampValue(now), actor, currentIncidentId]
             )
 
@@ -184,7 +187,7 @@ class IncidentArchiveService {
         ensureIncidentAuditColumns()
 
         withSql { Sql sql, Connection connection ->
-            def currentRow = sql.firstRow('SELECT INCIDENT_ID FROM AFIM_EVENT_POINT_BM0914 WHERE OBJECTID_1 = ?', [currentIncidentId])
+            def currentRow = sql.firstRow("SELECT INCIDENT_ID FROM ${CURRENT_INCIDENTS_TABLE} WHERE OBJECTID_1 = ?".toString(), [currentIncidentId])
             if (!currentRow) {
                 return [archived: false]
             }
@@ -194,12 +197,12 @@ class IncidentArchiveService {
             String actor = username ?: 'system'
             String action = normalizeArchiveAction(archiveAction)
             Timestamp archivedAt = timestampValue(new Date())
-            boolean includeGeom = hasColumn(connection, 'afim_event_archive', 'geom') && hasColumn(connection, 'afim_event_point_bm0914', 'geom')
+            boolean includeGeom = hasColumn(connection, ARCHIVE_INCIDENTS_TABLE, 'geom') && hasColumn(connection, CURRENT_INCIDENTS_TABLE, 'geom')
             String geometryColumn = includeGeom ? ', GEOM' : ''
             String geometrySelect = includeGeom ? ', GEOM' : ''
 
             int inserted = sql.executeUpdate(
-                """INSERT INTO AFIM_EVENT_ARCHIVE (
+                """INSERT INTO ${ARCHIVE_INCIDENTS_TABLE} (
                     ID, OBJECTID_1, VERSION, INCIDENT_ID, EVENT_TYPE, EVENT_DATE, EVENT_NAME, EVENT_DESC, EVENT_DESC_HAN,
                     MGRS_COORD, BASE, SIG_EVENT, AIR_OPS_AFFECTED, SOURCE, ENTERED, UPDATED_BY, UPDATED_DATE,
                     CREATED_BY, CREATED_DATE, EVENT_SOURCE_HAN, EVENT_CAT, WORKFLOW_STATUS, ARCHIVE_ACTION,
@@ -208,8 +211,8 @@ class IncidentArchiveService {
                 SELECT ?, ?, 0, INCIDENT_ID, EVENT_TYPE, EVENT_DATE, EVENT_NAME, EVENT_DESC, EVENT_DESC_HAN,
                        MGRS_COORD, BASE, SIG_EVENT, AIR_OPS_AFFECTED, SOURCE, ENTERED, UPDATED_BY, UPDATED_DATE,
                        CREATED_BY, CREATED_DATE, EVENT_SOURCE_HAN, EVENT_CAT, WORKFLOW_STATUS, ?, ?, ?, ?${geometrySelect}
-                FROM AFIM_EVENT_POINT_BM0914
-                WHERE OBJECTID_1 = ?""",
+                FROM ${CURRENT_INCIDENTS_TABLE}
+                WHERE OBJECTID_1 = ?""".toString(),
                 [archiveId, archiveObjectId, action, archivedAt, actor, currentIncidentId, currentIncidentId]
             )
 
@@ -233,15 +236,15 @@ class IncidentArchiveService {
     }
 
     private Long nextCurrentObjectId(Sql sql) {
-        sql.firstRow('SELECT COALESCE(MAX(OBJECTID_1), 0) + 1 AS next_id FROM AFIM_EVENT_POINT_BM0914').next_id as Long
+        sql.firstRow("SELECT COALESCE(MAX(OBJECTID_1), 0) + 1 AS next_id FROM ${CURRENT_INCIDENTS_TABLE}".toString()).next_id as Long
     }
 
     private Long nextArchiveId(Sql sql) {
-        sql.firstRow('SELECT COALESCE(MAX(ID), 0) + 1 AS next_id FROM AFIM_EVENT_ARCHIVE').next_id as Long
+        sql.firstRow("SELECT COALESCE(MAX(ID), 0) + 1 AS next_id FROM ${ARCHIVE_INCIDENTS_TABLE}".toString()).next_id as Long
     }
 
     private Long nextArchiveObjectId(Sql sql) {
-        sql.firstRow('SELECT COALESCE(MAX(OBJECTID_1), 0) + 1 AS next_id FROM AFIM_EVENT_ARCHIVE').next_id as Long
+        sql.firstRow("SELECT COALESCE(MAX(OBJECTID_1), 0) + 1 AS next_id FROM ${ARCHIVE_INCIDENTS_TABLE}".toString()).next_id as Long
     }
 
     private String normalizeArchiveAction(String archiveAction) {
@@ -285,14 +288,19 @@ class IncidentArchiveService {
     }
 
     private boolean hasColumn(Connection connection, String table, String column) {
-        def rs = connection.metaData.getColumns(null, null, table, column)
-        boolean found = false
-        try {
-            found = rs.next()
-        } finally {
-            rs?.close()
+        for (String tableName : [table, table.toLowerCase(), table.toUpperCase()].unique()) {
+            for (String columnName : [column, column.toLowerCase(), column.toUpperCase()].unique()) {
+                def rs = connection.metaData.getColumns(null, null, tableName, columnName)
+                try {
+                    if (rs.next()) {
+                        return true
+                    }
+                } finally {
+                    rs?.close()
+                }
+            }
         }
-        found
+        false
     }
 
     private boolean isPostgres(Connection connection) {

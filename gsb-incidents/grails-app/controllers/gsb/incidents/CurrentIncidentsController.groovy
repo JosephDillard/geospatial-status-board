@@ -13,6 +13,8 @@ import java.sql.Timestamp
 @Secured(['ROLE_USER'])
 @Transactional(readOnly = true, connection = 'geodbthree')
 class CurrentIncidentsController {
+    private static final String CURRENT_INCIDENTS_TABLE = 'current_incidents'
+
     def filterPaneService
     def springSecurityService
     def dataSource_geodbthree
@@ -89,9 +91,9 @@ class CurrentIncidentsController {
 
     def showArchive(CurrentIncidents currentIncidents) {
         def id = currentIncidents.id
-        def list = Incidents.findAllBySourceCurrentId(id, [sort: 'archivedAt', order: 'desc'])
+        def list = ArchiveIncidents.findAllBySourceCurrentId(id, [sort: 'archivedAt', order: 'desc'])
         if (!list && currentIncidents.incidentId) {
-            list = Incidents.findAllByIncidentId(currentIncidents.incidentId, [sort: 'archivedAt', order: 'desc'])
+            list = ArchiveIncidents.findAllByIncidentId(currentIncidents.incidentId, [sort: 'archivedAt', order: 'desc'])
         }
         [archiveList: list, currentIncidents: currentIncidents]
         //respond currentIncidents
@@ -307,7 +309,7 @@ class CurrentIncidentsController {
             sql = new Sql(connection)
             String productName = connection.metaData.databaseProductName ?: ''
             boolean postgres = productName.toLowerCase().contains('postgresql')
-            Long objectId = sql.firstRow('SELECT COALESCE(MAX(OBJECTID_1), 0) + 1 AS next_id FROM AFIM_EVENT_POINT_BM0914').next_id as Long
+            Long objectId = sql.firstRow("SELECT COALESCE(MAX(OBJECTID_1), 0) + 1 AS next_id FROM ${CURRENT_INCIDENTS_TABLE}".toString()).next_id as Long
             incident.id = objectId
 
             String geometryColumn = postgres ? ', GEOM' : ''
@@ -341,12 +343,12 @@ class CurrentIncidentsController {
             }
 
             int inserted = sql.executeUpdate(
-                """INSERT INTO AFIM_EVENT_POINT_BM0914 (
+                """INSERT INTO ${CURRENT_INCIDENTS_TABLE} (
                     OBJECTID_1, INCIDENT_ID, EVENT_TYPE, EVENT_CAT, EVENT_NAME, EVENT_DESC, EVENT_DESC_HAN,
                     MGRS_COORD, BASE, SIG_EVENT, AIR_OPS_AFFECTED, SOURCE, ENTERED, UPDATED_BY,
                     HIDDEN_BY, HIDDEN, UPDATED_DATE, CREATED_BY, CREATED_DATE, EVENT_SOURCE_HAN,
                     WORKFLOW_STATUS${geometryColumn}
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${geometryValue})""",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${geometryValue})""".toString(),
                 values
             )
             result.inserted = inserted > 0

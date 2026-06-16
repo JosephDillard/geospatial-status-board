@@ -16,6 +16,7 @@ class MapController {
         Map geoserverConfig = asMap(geoConfig.geoserver)
         Map geoaiConfig = asMap(geoConfig.geoai)
         Map gatewayConfig = asMap(geoConfig.gateway)
+        Map placeSearchConfig = asMap(geoConfig.placeSearch)
         Map layers = normalizeLayers(asMap(geoConfig.layers), asInteger(viewerConfig.maxFeatures, 500))
         Map externalLayers = normalizeExternalLayers(asMap(geoConfig.externalLayers))
         Map basemaps = normalizeBasemaps(asMap(viewerConfig.basemaps), viewerConfig)
@@ -33,6 +34,9 @@ class MapController {
         Map selectedLayerConfig = selectedLayer ? layers[selectedLayer] as Map : [:]
         String selectedField = params.field?.toString() ?: selectedLayerConfig.idField?.toString()
         String selectedValue = params.value?.toString() ?: params.featureId?.toString()
+        if (selectedLayer && (params.layer || selectedValue) && layers[selectedLayer] instanceof Map) {
+            layers[selectedLayer].enabled = true
+        }
 
         Map mapConfig = [
             wfsUrl          : geoserverConfig.wfsUrl?.toString() ?: '',
@@ -64,6 +68,11 @@ class MapController {
                 hubUrl          : gatewayConfig.hubUrl?.toString() ?: '',
                 reconnectDelayMs: asInteger(gatewayConfig.reconnectDelayMs, 5000),
                 eventName       : gatewayConfig.eventName?.toString() ?: 'layer.refresh_requested'
+            ],
+            placeSearch     : [
+                geonamesUsername     : placeSearchConfig.geonamesUsername?.toString() ?: System.getenv('GEONAMES_USERNAME') ?: '',
+                resultLimit          : asInteger(placeSearchConfig.resultLimit, 5),
+                wikipediaRadiusMeters: asInteger(placeSearchConfig.wikipediaRadiusMeters, 10000)
             ],
             tools           : tools,
             coordinateDigits: viewerConfig.coordinateDigits ?: 6,
@@ -108,6 +117,8 @@ class MapController {
                     filterField : layer.filterField?.toString() ?: '',
                     filterLabel : layer.filterLabel?.toString() ?: '',
                     filterAllLabel: layer.filterAllLabel?.toString() ?: '',
+                    filterFields: normalizeStringList(layer.filterFields),
+                    popupFields : normalizeStringList(layer.popupFields),
                     maxFeatures : layer.maxFeatures ?: defaultMaxFeatures,
                     category    : layer.category?.toString() ?: 'Internal',
                     enabled     : asBoolean(layer.enabled, false)
@@ -143,6 +154,14 @@ class MapController {
                 ]
             ]
         }
+    }
+
+    private List<String> normalizeStringList(Object rawValues) {
+        if (!(rawValues instanceof Collection)) {
+            return []
+        }
+
+        rawValues.collect { Object value -> value?.toString()?.trim() }.findAll { String value -> value }
     }
 
     private Map normalizeBasemaps(Map rawBasemaps, Map viewerConfig) {
@@ -195,7 +214,8 @@ class MapController {
             fullscreen     : asBoolean(rawTools.fullscreen, true),
             fitLayer       : asBoolean(rawTools.fitLayer, true),
             createIncidents: asBoolean(rawTools.createIncidents, true),
-            geoaiRequests  : asBoolean(rawTools.geoaiRequests, true)
+            geoaiRequests  : asBoolean(rawTools.geoaiRequests, true),
+            placeSearch    : asBoolean(rawTools.placeSearch, true)
         ]
     }
 
