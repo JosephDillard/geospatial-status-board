@@ -15,6 +15,7 @@
 	<ul>
 		<li><a class="home" href="${createLink(uri: '/')}"><g:message code="default.home.label"/></a></li>
 		<li><g:link class="list" action="index"><g:message code="default.list.label" args="[entityName]" /></g:link></li>
+		<li><g:link class="list" action="board">Incident Board</g:link></li>
 	</ul>
 </div>
 <div id="show-currentIncidents" class="content scaffold-show" role="main">
@@ -32,6 +33,13 @@
 
 			</li>
 		</g:if>
+
+		<li class="fieldcontain">
+			<span id="workflowStatus-label" class="property-label"><g:message code="currentIncidents.workflowStatus.label" default="Workflow Status" /></span>
+
+			<span class="property-value" aria-labelledby="workflowStatus-label">${currentIncidents?.workflowStatus ?: 'New'}</span>
+
+		</li>
 
 		<g:if test="${currentIncidents?.eventType}">
 			<li class="fieldcontain">
@@ -173,7 +181,8 @@
 	</ol>
 	<g:form url="[resource:currentIncidents, action:'delete']" method="DELETE">
 		<fieldset class="buttons current-incident-show-buttons">
-			%{--<g:link class="edit" action="edit" resource="${currentIncidents}"><g:message code="default.button.edit.label" default="Edit" /></g:link>--}%
+			<g:link class="edit" action="edit" resource="${currentIncidents}"><g:message code="default.button.edit.label" default="Edit" /></g:link>
+			<input class="delete" type="submit" value="${message(code: 'default.button.delete.label', default: 'Delete')}" onclick="return confirm('${message(code: 'default.button.delete.confirm.message', default: 'Are you sure?')}');" />
 		</fieldset>
 	</g:form>
 </div>

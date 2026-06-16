@@ -104,19 +104,8 @@
 	</table>
 
 	<div class="pagination">
-		<filterpane:paginate total="${incidentsCount}" domainBean="gsb.incidents.incidentsarchive"/>
-		<filterpane:filterButton text="Filter List"/>
-		<filterpane:isFiltered>Filter Applied</filterpane:isFiltered>
+		<g:paginate total="${incidentsCount ?: 0}"/>
 	</div>
-	<filterpane:filterPane domain="gsb.incidents.incidentsarchive"
-
-	                       titleKey="fp.tag.filterPane.titleText"
-	                       dialog="true"
-	                       visible="n"
-	                       showSortPanel="y"
-	                       showTitle="y"
-	                       filterParams="n"
-	                       fullAssociationPathFieldNames="true"/>
 
 	<form name="filterselect">
 		<span>Filter Incident List</span>

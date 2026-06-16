@@ -7,7 +7,7 @@ import grails.gorm.transactions.Transactional
 class IncidentsarchiveController {
     def filterPaneService
 
-    static allowedMethods = [save: "POST", update: "PUT"]
+    static allowedMethods = [save: "POST", update: "PUT", delete: "DELETE"]
 
 
     def index(Integer max) {
@@ -145,20 +145,12 @@ class IncidentsarchiveController {
 
     @Transactional(connection = 'geodbthree')
     def delete(Incidents incidents) {
-
-        if (incidents == null) {
-            notFound()
-            return
-        }
-
-        incidents.delete flush: true
-
         request.withFormat {
             form multipartForm {
-                flash.message = message(code: 'default.deleted.message', args: [message(code: 'Incidents.label', default: 'Incidents'), incidents.id])
+                flash.message = 'Incident archive entries cannot be deleted.'
                 redirect action: "index", method: "GET"
             }
-            '*' { render status: NO_CONTENT }
+            '*' { render status: METHOD_NOT_ALLOWED }
         }
     }
 

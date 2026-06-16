@@ -22,6 +22,7 @@ class FACDAMIncidents {
     Date createdDate
     String eventSourceHan
     String eventCat
+    String workflowStatus
 
     //CFEN FACDAM Specific Fields
     String sector
@@ -55,6 +56,7 @@ class FACDAMIncidents {
         createdDate nullable: true, blank: true
         eventSourceHan nullable: true, blank: true
         eventCat nullable: true, blank: true
+        workflowStatus nullable: true, blank: true, inList: IncidentWorkflowStatus.STATUSES
         sector nullable: true, blank: true
         repairStatus nullable: true, blank: true
         currentProgress nullable: true, blank: true
@@ -70,6 +72,7 @@ class FACDAMIncidents {
         id column: 'OBJECTID_1'
         eventDesc type: 'text', sqlType: 'text'
         eventDescHan type: 'text', sqlType: 'text'
+        workflowStatus column: 'WORKFLOW_STATUS'
         //incidentId column: 'OBJECTID_1'
         version false
         table 'AFIM_EVENT_POINT_BM0914'

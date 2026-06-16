@@ -31,6 +31,22 @@
 					
 				</li>
 				</g:if>
+
+				<g:if test="${incidents?.archiveAction}">
+				<li class="fieldcontain">
+					<span id="archiveAction-label" class="property-label"><g:message code="incidentsarchive.archiveAction.label" default="Archive Action" /></span>
+
+						<span class="property-value" aria-labelledby="archiveAction-label"><g:fieldValue bean="${incidents}" field="archiveAction"/></span>
+
+				</li>
+				</g:if>
+
+				<li class="fieldcontain">
+					<span id="workflowStatus-label" class="property-label"><g:message code="incidentsarchive.workflowStatus.label" default="Workflow Status" /></span>
+
+						<span class="property-value" aria-labelledby="workflowStatus-label">${incidents?.workflowStatus ?: 'New'}</span>
+
+				</li>
 			
 				<g:if test="${incidents?.eventType}">
 				<li class="fieldcontain">
@@ -160,6 +176,33 @@
 				</li>
 				</g:if>
 
+				<g:if test="${incidents?.archivedAt}">
+				<li class="fieldcontain">
+					<span id="archivedAt-label" class="property-label"><g:message code="incidentsarchive.archivedAt.label" default="Archived At" /></span>
+
+						<span class="property-value" aria-labelledby="archivedAt-label"><g:fieldValue bean="${incidents}" field="archivedAt"/></span>
+
+				</li>
+				</g:if>
+
+				<g:if test="${incidents?.archivedBy}">
+				<li class="fieldcontain">
+					<span id="archivedBy-label" class="property-label"><g:message code="incidentsarchive.archivedBy.label" default="Archived By" /></span>
+
+						<span class="property-value" aria-labelledby="archivedBy-label"><g:fieldValue bean="${incidents}" field="archivedBy"/></span>
+
+				</li>
+				</g:if>
+
+				<g:if test="${incidents?.sourceCurrentId}">
+				<li class="fieldcontain">
+					<span id="sourceCurrentId-label" class="property-label"><g:message code="incidentsarchive.sourceCurrentId.label" default="Current Incident ID" /></span>
+
+						<span class="property-value" aria-labelledby="sourceCurrentId-label"><g:fieldValue bean="${incidents}" field="sourceCurrentId"/></span>
+
+				</li>
+				</g:if>
+
 				<g:if test="${incidents?.entered}">
 					<li class="fieldcontain">
 						<span id="eventSourceHan-label" class="property-label"><g:message code="incidentsarchive.eventSourceHan.label" default="App" /></span>
@@ -170,10 +213,6 @@
 				</g:if>
 			
 			</ol>
-			<g:form url="[resource:incidents, action:'delete']" method="DELETE">
-				<fieldset class="buttons">
-				</fieldset>
-			</g:form>
 		</div>
 	</body>
 </html>

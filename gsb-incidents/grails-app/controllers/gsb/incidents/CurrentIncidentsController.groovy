@@ -1,6 +1,6 @@
 package gsb.incidents
 
-import org.springframework.security.access.annotation.Secured
+import grails.plugin.springsecurity.annotation.Secured
 import static org.springframework.http.HttpStatus.*
 import grails.gorm.transactions.NotTransactional
 import grails.gorm.transactions.Transactional
@@ -10,14 +10,15 @@ import java.text.SimpleDateFormat
 import java.sql.Connection
 import java.sql.Timestamp
 
-@Secured(['is_authenticated_anonymously','ROLE_USER'])
+@Secured(['ROLE_USER'])
 @Transactional(readOnly = true, connection = 'geodbthree')
 class CurrentIncidentsController {
     def filterPaneService
     def springSecurityService
     def dataSource_geodbthree
+    IncidentArchiveService incidentArchiveService
 
-    static allowedMethods = [save: "POST", update: "PUT", delete: "DELETE", mapCreate: "POST"]
+    static allowedMethods = [save: "POST", update: "PUT", delete: "DELETE", mapCreate: "POST", updateWorkflowStatus: "POST"]
 
     def index(Integer max) {
         params.max = Math.min(max ?: 50, 300)
@@ -52,7 +53,25 @@ class CurrentIncidentsController {
     }
 
     def edit(CurrentIncidents currentIncidents) {
-        respond currentIncidents
+        respond currentIncidents, model: [workflowStatuses: incidentArchiveService.workflowStatuses]
+    }
+
+    def board() {
+        List<String> statuses = incidentArchiveService.workflowStatuses
+        Map<String, List<CurrentIncidents>> columns = statuses.collectEntries { String status ->
+            [status, []]
+        }
+
+        CurrentIncidents.list(sort: 'updatedDate', order: 'desc').each { CurrentIncidents incident ->
+            String status = incidentArchiveService.normalizeWorkflowStatus(incident.workflowStatus)
+            columns[status] << incident
+        }
+
+        [
+            workflowStatuses     : statuses,
+            workflowColumns      : columns,
+            currentIncidentsCount: CurrentIncidents.count()
+        ]
     }
 
     def filter = {
@@ -70,7 +89,10 @@ class CurrentIncidentsController {
 
     def showArchive(CurrentIncidents currentIncidents) {
         def id = currentIncidents.id
-        def list = Incidents.findAllByObjectid_1(id)
+        def list = Incidents.findAllBySourceCurrentId(id, [sort: 'archivedAt', order: 'desc'])
+        if (!list && currentIncidents.incidentId) {
+            list = Incidents.findAllByIncidentId(currentIncidents.incidentId, [sort: 'archivedAt', order: 'desc'])
+        }
         [archiveList: list, currentIncidents: currentIncidents]
         //respond currentIncidents
     }
@@ -80,7 +102,9 @@ class CurrentIncidentsController {
 //    }
 
     def create() {
-        respond new CurrentIncidents(params)
+        CurrentIncidents currentIncidents = new CurrentIncidents(params)
+        currentIncidents.workflowStatus = incidentArchiveService.normalizeWorkflowStatus(currentIncidents.workflowStatus)
+        respond currentIncidents, model: [workflowStatuses: incidentArchiveService.workflowStatuses]
     }
 
     @Secured(['ROLE_USER'])
@@ -127,9 +151,11 @@ class CurrentIncidentsController {
             updatedDate    : now,
             createdBy      : username,
             createdDate    : now,
-            eventSourceHan : 'Status App Map'
+            eventSourceHan : 'Status App Map',
+            workflowStatus : IncidentWorkflowStatus.NEW
         ]
 
+        incidentArchiveService.ensureIncidentAuditColumns()
         Map geometryResult = insertIncidentRecord(currentIncidents, longitude, latitude)
         if (!geometryResult.inserted) {
             render status: INTERNAL_SERVER_ERROR, contentType: 'application/json', text: JsonOutput.toJson([
@@ -138,6 +164,7 @@ class CurrentIncidentsController {
             ])
             return
         }
+        incidentArchiveService.archiveCurrentIncidentById(currentIncidents.id as Long, 'CREATED', username)
 
         render status: CREATED, contentType: 'application/json', text: JsonOutput.toJson([
             incident: incidentPayload(currentIncidents, longitude, latitude),
@@ -146,68 +173,70 @@ class CurrentIncidentsController {
         ])
     }
 
-    @Transactional(connection = 'geodbthree')
-    def save(CurrentIncidents currentIncidents) {
-        if (currentIncidents == null) {
-            notFound()
-            return
-        }
-
-        if (currentIncidents.hasErrors()) {
-            respond currentIncidents.errors, view: 'create'
-            return
-        }
-
-        currentIncidents.save flush: true
+    @NotTransactional
+    def save() {
+        Map result = incidentArchiveService.createCurrentIncidentFromParams(params, currentUsername())
 
         request.withFormat {
             form multipartForm {
-                flash.message = message(code: 'default.created.message', args: [message(code: 'currentIncidents.label', default: 'CurrentIncidents'), currentIncidents.id])
-                redirect currentIncidents
+                flash.message = message(code: 'default.created.message', args: [message(code: 'currentIncidents.label', default: 'CurrentIncidents'), result.id])
+                redirect action: 'show', id: result.id
             }
-            '*' { respond currentIncidents, [status: CREATED] }
+            '*' { render status: CREATED, contentType: 'application/json', text: JsonOutput.toJson(result) }
         }
     }
     
-    @Transactional(connection = 'geodbthree')
-    def update(CurrentIncidents currentIncidents) {
-        if (currentIncidents == null) {
+    @NotTransactional
+    def update() {
+        Long currentIncidentId = params.long('id')
+        Map result = incidentArchiveService.updateCurrentIncidentFromParams(currentIncidentId, params, currentUsername())
+        if (!result.found) {
             notFound()
             return
         }
 
-        if (currentIncidents.hasErrors()) {
-            respond currentIncidents.errors, view:'edit'
-            return
-        }
-
-        currentIncidents.save flush:true
-
         request.withFormat {
             form multipartForm {
-                flash.message = message(code: 'default.updated.message', args: [message(code: 'CurrentIncidents.label', default: 'CurrentIncidents'), currentIncidents.id])
-                redirect currentIncidents
+                flash.message = message(code: 'default.updated.message', args: [message(code: 'CurrentIncidents.label', default: 'CurrentIncidents'), result.id])
+                redirect action: 'show', id: result.id
             }
-            '*'{ respond currentIncidents, [status: OK] }
+            '*'{ render status: OK, contentType: 'application/json', text: JsonOutput.toJson(result) }
         }
     }
 
-    @Transactional(connection = 'geodbthree')
-    def delete(CurrentIncidents currentIncidents) {
-
-        if (currentIncidents == null) {
+    @NotTransactional
+    def delete() {
+        Long currentIncidentId = params.long('id')
+        Map result = incidentArchiveService.deleteCurrentIncident(currentIncidentId, currentUsername())
+        if (!result.found) {
             notFound()
             return
         }
 
-        currentIncidents.delete flush:true
-
         request.withFormat {
             form multipartForm {
-                flash.message = message(code: 'default.deleted.message', args: [message(code: 'CurrentIncidents.label', default: 'CurrentIncidents'), currentIncidents.id])
+                flash.message = message(code: 'default.deleted.message', args: [message(code: 'CurrentIncidents.label', default: 'CurrentIncidents'), currentIncidentId])
                 redirect action:"index", method:"GET"
             }
             '*'{ render status: NO_CONTENT }
+        }
+    }
+
+    @NotTransactional
+    def updateWorkflowStatus() {
+        Map result = incidentArchiveService.updateCurrentIncidentWorkflowStatus(params.long('id'), params.workflowStatus?.toString(), currentUsername())
+
+        if (!result.found) {
+            notFound()
+            return
+        }
+
+        flash.message = "Incident ${result.label} moved to ${result.status}."
+        String returnTo = params.returnTo?.toString()
+        if (returnTo == 'index') {
+            redirect action: 'index', method: 'GET'
+        } else {
+            redirect action: 'board', method: 'GET'
         }
     }
 
@@ -234,6 +263,7 @@ class CurrentIncidentsController {
             sigEvent      : incident.sigEvent,
             airOpsAffected: incident.airOpsAffected,
             source        : incident.source,
+            workflowStatus: incident.workflowStatus,
             createdBy     : incident.createdBy,
             createdDate   : formatUtc(incident.createdDate, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
             longitude     : longitude,
@@ -261,6 +291,7 @@ class CurrentIncidentsController {
                 sig_event       : incident.sigEvent,
                 air_ops_affected: incident.airOpsAffected,
                 source          : incident.source,
+                workflow_status : incident.workflowStatus,
                 created_by      : incident.createdBy,
                 created_date    : formatUtc(incident.createdDate, "yyyy-MM-dd'T'HH:mm:ss'Z'")
             ]
@@ -301,7 +332,8 @@ class CurrentIncidentsController {
                 timestampValue(incident.updatedDate),
                 incident.createdBy,
                 timestampValue(incident.createdDate),
-                incident.eventSourceHan
+                incident.eventSourceHan,
+                incident.workflowStatus
             ]
             if (postgres) {
                 values.add(longitude)
@@ -312,8 +344,9 @@ class CurrentIncidentsController {
                 """INSERT INTO AFIM_EVENT_POINT_BM0914 (
                     OBJECTID_1, INCIDENT_ID, EVENT_TYPE, EVENT_CAT, EVENT_NAME, EVENT_DESC, EVENT_DESC_HAN,
                     MGRS_COORD, BASE, SIG_EVENT, AIR_OPS_AFFECTED, SOURCE, ENTERED, UPDATED_BY,
-                    HIDDEN_BY, HIDDEN, UPDATED_DATE, CREATED_BY, CREATED_DATE, EVENT_SOURCE_HAN${geometryColumn}
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${geometryValue})""",
+                    HIDDEN_BY, HIDDEN, UPDATED_DATE, CREATED_BY, CREATED_DATE, EVENT_SOURCE_HAN,
+                    WORKFLOW_STATUS${geometryColumn}
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${geometryValue})""",
                 values
             )
             result.inserted = inserted > 0

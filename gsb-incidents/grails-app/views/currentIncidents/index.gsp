@@ -19,6 +19,7 @@
 		<div class="nav" role="navigation">
 			<ul>
 				<li><a class="home" href="${createLink(uri: '/')}"><g:message code="default.home.label"/></a></li>
+				<li><g:link class="list" action="board">Incident Board</g:link></li>
 			</ul>
 		</div>
 	
@@ -41,6 +42,8 @@
 				<thead>
 					<tr>
 						<g:sortableColumn property="id" title="${message(code: 'currentIncident.id.label', default: 'Incident ID')}"/>
+
+						<g:sortableColumn property="workflowStatus" title="${message(code: 'currentIncident.workflowStatus.label', default: 'Status')}"/>
 
 						<g:sortableColumn property="eventType" title="${message(code: 'currentIncident.eventType.label', default: 'Type')}"/>
 
@@ -86,6 +89,8 @@
 				<g:each in="${currentIncidentsList}" status="i" var="currentIncidents">
 					<tr class="${(i % 2) == 0 ? 'even' : 'odd'}">
 						<td><g:link action="show" id="${currentIncidents.id}">${currentIncidents.id}</g:link></td>
+
+						<td>${fieldValue(bean: currentIncidents, field: "workflowStatus") ?: 'New'}</td>
 
 						<td>${fieldValue(bean: currentIncidents, field: "eventType")}</td>
 

@@ -33,6 +33,10 @@
 
 			<g:sortableColumn property="incidentId" title="${message(code: 'incidentsarchive.incidentId.label', default: 'Incident ID')}"/>
 
+			<g:sortableColumn property="archiveAction" title="${message(code: 'incidentsarchive.archiveAction.label', default: 'Archive Action')}"/>
+
+			<g:sortableColumn property="workflowStatus" title="${message(code: 'incidentsarchive.workflowStatus.label', default: 'Status')}"/>
+
 			<g:sortableColumn property="eventType" title="${message(code: 'incidentsarchive.eventType.label', default: 'Type')}"/>
 
 			<g:sortableColumn property="eventCat" title="${message(code: 'incidentsarchive.eventCat.label', default: 'Category')}"/>
@@ -58,9 +62,13 @@
 
 			<g:sortableColumn defaultOrder="desc" property="createdDate" title="${message(code: 'incidentsarchive.createdDate.label', default: 'Created')}"/>
 
-			<g:sortableColumn property="updatedDate" title="${message(code: 'incidentsarchive.updatedDate.label', default: 'Updated By')}"/>
+			<g:sortableColumn property="updatedBy" title="${message(code: 'incidentsarchive.updatedBy.label', default: 'Updated By')}"/>
 
-			<g:sortableColumn property="updatedBy" title="${message(code: 'incidentsarchive.updatedBy.label', default: 'Updated')}"/>
+			<g:sortableColumn property="updatedDate" title="${message(code: 'incidentsarchive.updatedDate.label', default: 'Updated')}"/>
+
+			<g:sortableColumn property="archivedAt" title="${message(code: 'incidentsarchive.archivedAt.label', default: 'Archived At')}"/>
+
+			<g:sortableColumn property="archivedBy" title="${message(code: 'incidentsarchive.archivedBy.label', default: 'Archived By')}"/>
 
 		</tr>
 		</thead>
@@ -69,6 +77,10 @@
 			<tr class="${(i % 2) == 0 ? 'even' : 'odd'}">
 
 				<td><g:link action="show" id="${incidents.id}">${fieldValue(bean: incidents, field: "incidentId")}</g:link></td>
+
+				<td>${fieldValue(bean: incidents, field: "archiveAction")}</td>
+
+				<td>${fieldValue(bean: incidents, field: "workflowStatus") ?: 'New'}</td>
 
 				<td>${fieldValue(bean: incidents, field: "eventType")}</td>
 
@@ -100,25 +112,18 @@
 
 				<td><g:formatDate timeZone="America/Denver"  date="${incidents.updatedDate}"/></td>
 
+				<td><g:formatDate timeZone="America/Denver"  date="${incidents.archivedAt}"/></td>
+
+				<td>${fieldValue(bean: incidents, field: "archivedBy")}</td>
+
 			</tr>
 		</g:each>
 		</tbody>
 	</table>
 
 	<div class="pagination">
-		<filterpane:paginate total="${incidentsCount}" domainBean="gsb.incidents.incidentsarchive"/>
-		<h2><filterpane:filterButton text="Filter List"/></h2>
-		<filterpane:isFiltered>Filter Applied</filterpane:isFiltered>
+		<g:paginate total="${incidentsCount ?: 0}"/>
 	</div>
-	<filterpane:filterPane domain="gsb.incidents.incidentsarchive"
-
-	                       titleKey="fp.tag.filterPane.titleText"
-	                       dialog="true"
-	                       visible="n"
-	                       showSortPanel="y"
-	                       showTitle="y"
-	                       filterParams="n"
-	                       fullAssociationPathFieldNames="true"/>
 
 	<form name="filterselect">
 		<span><h2>Filter Incident List</h2></span>
@@ -165,6 +170,6 @@
 <div></div>
 <div></div>
 <div></div>
-<h4>If an Incident as been edited 4 times, there will be 5 records in this table with the same Incident ID. One when the incident was created and one record for every edit.</h4>
+<h4>Incident Archive is an append-only history. A snapshot is added when a current incident is created, edited, moved on the board, or deleted.</h4>
 </body>
 </html>

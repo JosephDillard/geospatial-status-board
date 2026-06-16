@@ -54,16 +54,26 @@ BEGIN
 
     IF to_regclass('public.afim_event_point_bm0914') IS NOT NULL THEN
         ALTER TABLE public.afim_event_point_bm0914
-            ADD COLUMN IF NOT EXISTS geom geometry(Geometry, 4326);
+            ADD COLUMN IF NOT EXISTS geom geometry(Geometry, 4326),
+            ADD COLUMN IF NOT EXISTS workflow_status varchar(64);
         CREATE INDEX IF NOT EXISTS afim_event_point_bm0914_geom_gix
             ON public.afim_event_point_bm0914 USING GIST (geom);
     END IF;
 
     IF to_regclass('public.afim_event_archive') IS NOT NULL THEN
         ALTER TABLE public.afim_event_archive
-            ADD COLUMN IF NOT EXISTS geom geometry(Geometry, 4326);
+            ADD COLUMN IF NOT EXISTS geom geometry(Geometry, 4326),
+            ADD COLUMN IF NOT EXISTS workflow_status varchar(64),
+            ADD COLUMN IF NOT EXISTS archive_action varchar(32),
+            ADD COLUMN IF NOT EXISTS archived_at timestamp,
+            ADD COLUMN IF NOT EXISTS archived_by varchar(255),
+            ADD COLUMN IF NOT EXISTS source_current_id bigint;
         CREATE INDEX IF NOT EXISTS afim_event_archive_geom_gix
             ON public.afim_event_archive USING GIST (geom);
+        CREATE INDEX IF NOT EXISTS afim_event_archive_source_current_id_idx
+            ON public.afim_event_archive (source_current_id);
+        CREATE INDEX IF NOT EXISTS afim_event_archive_archived_at_idx
+            ON public.afim_event_archive (archived_at);
     END IF;
 END $$;
 

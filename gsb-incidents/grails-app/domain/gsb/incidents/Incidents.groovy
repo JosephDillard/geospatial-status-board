@@ -20,6 +20,11 @@ class Incidents {
     Date   createdDate
     String eventSourceHan
     String eventCat
+    String workflowStatus
+    String archiveAction
+    Date archivedAt
+    String archivedBy
+    Long sourceCurrentId
 
     static constraints = {
         incidentId nullable: true, blank: true
@@ -40,11 +45,21 @@ class Incidents {
         createdDate nullable: true, blank: true
         eventSourceHan nullable: true, blank: true
         eventCat nullable: true, blank: true
+        workflowStatus nullable: true, blank: true, inList: IncidentWorkflowStatus.STATUSES
+        archiveAction nullable: true, blank: true
+        archivedAt nullable: true, blank: true
+        archivedBy nullable: true, blank: true
+        sourceCurrentId nullable: true, blank: true
     }
     static mapping = {
         //id column: 'OBJECTID_1'
         eventDesc type: 'text', sqlType: 'text'
         eventDescHan type: 'text', sqlType: 'text'
+        workflowStatus column: 'WORKFLOW_STATUS'
+        archiveAction column: 'ARCHIVE_ACTION'
+        archivedAt column: 'ARCHIVED_AT'
+        archivedBy column: 'ARCHIVED_BY'
+        sourceCurrentId column: 'SOURCE_CURRENT_ID'
         //incidentId column: 'OBJECTID_1'
         table "AFIM_EVENT_ARCHIVE"
         datasource 'geodbthree'

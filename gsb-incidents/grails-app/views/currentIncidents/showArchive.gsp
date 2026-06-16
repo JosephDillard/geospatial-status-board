@@ -24,6 +24,10 @@
     <tr>
         <g:sortableColumn property="objectid_1" title="${message(code: 'incident.objectid_1.label', default: 'Incident ID')}"/>
 
+        <g:sortableColumn property="archiveAction" title="${message(code: 'incident.archiveAction.label', default: 'Archive Action')}"/>
+
+        <g:sortableColumn property="workflowStatus" title="${message(code: 'incident.workflowStatus.label', default: 'Status')}"/>
+
         <g:sortableColumn property="eventType" title="${message(code: 'incident.eventType.label', default: 'Type')}"/>
 
         <g:sortableColumn property="eventCat" title="${message(code: 'incident.eventCat.label', default: 'Category')}"/>
@@ -53,6 +57,8 @@
 
         <g:sortableColumn property="updatedBy" title="${message(code: 'incident.updatedBy.label', default: 'Updated By')}"/>
 
+        <g:sortableColumn property="archivedAt" title="${message(code: 'incident.archivedAt.label', default: 'Archived At')}"/>
+
     </tr>
     </thead>
 
@@ -60,7 +66,11 @@
 
     <g:each in="${archiveList}" status="i" var="archiveIncidents">
         <tr class="${(i % 2) == 0 ? 'even' : 'odd'}">
-            <td><g:link controller="Incidents" action="show" id="${archiveIncidents.id}">${fieldValue(bean: archiveIncidents, field: "objectid_1")}</g:link></td>
+            <td><g:link controller="incidentsarchive" action="show" id="${archiveIncidents.id}">${fieldValue(bean: archiveIncidents, field: "objectid_1")}</g:link></td>
+
+            <td>${fieldValue(bean: archiveIncidents, field: "archiveAction")}</td>
+
+            <td>${fieldValue(bean: archiveIncidents, field: "workflowStatus") ?: 'New'}</td>
 
             <td>${fieldValue(bean: archiveIncidents, field: "eventType")}</td>
 
@@ -90,6 +100,8 @@
             <td><g:formatDate timeZone="America/Denver"  date="${archiveIncidents.updatedDate}"/></td>
 
             <td>${fieldValue(bean: archiveIncidents, field: "updatedBy")}</td>
+
+            <td><g:formatDate timeZone="America/Denver"  date="${archiveIncidents.archivedAt}"/></td>
         </tr>
     </g:each>
     </tbody>

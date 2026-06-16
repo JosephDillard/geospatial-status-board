@@ -21,6 +21,7 @@ class CurrentIncidents {
     Date createdDate
     String eventSourceHan
     String eventCat
+    String workflowStatus
 
     static constraints = {
         //incidentId nullable: true, blank: true
@@ -43,11 +44,13 @@ class CurrentIncidents {
         createdDate nullable: true, blank: true
         eventSourceHan nullable: true, blank: true
         eventCat nullable: true, blank: true
+        workflowStatus nullable: true, blank: true, inList: IncidentWorkflowStatus.STATUSES
     }
     static mapping = {
         id column: 'OBJECTID_1'
         eventDesc type: 'text', sqlType: 'text'
         eventDescHan type: 'text', sqlType: 'text'
+        workflowStatus column: 'WORKFLOW_STATUS'
         //incidentId column: 'OBJECTID_1'
         version false
         table 'AFIM_EVENT_POINT_BM0914'

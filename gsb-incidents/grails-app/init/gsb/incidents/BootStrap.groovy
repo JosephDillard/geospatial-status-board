@@ -251,6 +251,7 @@ class BootStrap {
                         createdDate: eventDate,
                         eventSourceHan: 'Status App',
                         eventCat: record.eventCat,
+                        workflowStatus: IncidentWorkflowStatus.NEW,
                         sector: record.sector,
                         repairStatus: record.repairStatus,
                         currentProgress: record.currentProgress,
@@ -303,7 +304,11 @@ class BootStrap {
                         createdBy: 'bootstrap',
                         createdDate: eventDate,
                         eventSourceHan: 'Status App',
-                        eventCat: record.eventCat
+                        eventCat: record.eventCat,
+                        workflowStatus: IncidentWorkflowStatus.NEW,
+                        archiveAction: 'CREATED',
+                        archivedAt: eventDate,
+                        archivedBy: 'bootstrap'
                     ).save(failOnError: true)
                 }
             }
