@@ -168,11 +168,16 @@ class CurrentIncidentsController {
         }
         incidentArchiveService.archiveCurrentIncidentById(currentIncidents.id as Long, 'CREATED', username)
 
-        render status: CREATED, contentType: 'application/json', text: JsonOutput.toJson([
+        Map response = [
             incident: incidentPayload(currentIncidents, longitude, latitude),
             feature : incidentFeature(currentIncidents, longitude, latitude),
             geometry: geometryResult
-        ])
+        ]
+        if (geometryResult.reason == 'non-postgresql-datasource') {
+            response.warning = 'Incident was saved to the active datasource, but not published to PostGIS/GeoServer. Start the app with SPRING_PROFILES_ACTIVE=postgis for WFS publishing.'
+        }
+
+        render status: CREATED, contentType: 'application/json', text: JsonOutput.toJson(response)
     }
 
     @NotTransactional
@@ -301,7 +306,7 @@ class CurrentIncidentsController {
     }
 
     private Map insertIncidentRecord(Map incident, BigDecimal longitude, BigDecimal latitude) {
-        Map result = [inserted: false, updated: false, skipped: true]
+        Map result = [inserted: false, updated: false, skipped: true, publishedToPostgis: false]
         Connection connection = null
         Sql sql = null
         try {
@@ -309,6 +314,7 @@ class CurrentIncidentsController {
             sql = new Sql(connection)
             String productName = connection.metaData.databaseProductName ?: ''
             boolean postgres = productName.toLowerCase().contains('postgresql')
+            result.databaseProductName = productName
             Long objectId = sql.firstRow("SELECT COALESCE(MAX(OBJECTID_1), 0) + 1 AS next_id FROM ${CURRENT_INCIDENTS_TABLE}".toString()).next_id as Long
             incident.id = objectId
 
@@ -352,7 +358,8 @@ class CurrentIncidentsController {
                 values
             )
             result.inserted = inserted > 0
-            result.updated = postgres && inserted > 0
+            result.publishedToPostgis = postgres && inserted > 0
+            result.updated = result.publishedToPostgis
             result.skipped = !postgres
             if (!postgres) {
                 result.reason = 'non-postgresql-datasource'

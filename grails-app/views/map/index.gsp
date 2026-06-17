@@ -2941,8 +2941,16 @@
             focusIncidentFeature(body.feature);
             clearIncidentDraft();
             setIncidentPanelOpen(false);
-            setStatus('Incident ' + body.incident.incidentId + ' created.');
-            ensureCurrentIncidentsLayerRefresh();
+            var geometry = body.geometry || {};
+            var incidentId = body.incident && body.incident.incidentId ? body.incident.incidentId : 'incident';
+            if (geometry.publishedToPostgis) {
+                setStatus('Incident ' + incidentId + ' saved to PostGIS. Refreshing Current Incidents.');
+                ensureCurrentIncidentsLayerRefresh();
+            } else if (geometry.reason === 'non-postgresql-datasource') {
+                setStatus('Incident ' + incidentId + ' created locally. It will not appear in WFS until the app is run with the postgis profile.', true);
+            } else {
+                setStatus(body.warning || ('Incident ' + incidentId + ' created.'));
+            }
         }).catch(function (error) {
             setStatus(error.message, true);
         }).finally(function () {
