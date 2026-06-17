@@ -23,6 +23,8 @@ class MapController {
         Map tools = normalizeTools(asMap(viewerConfig.tools))
         String selectedLayer = params.layer?.toString()
         String selectedBasemap = params.basemap?.toString() ?: viewerConfig.selectedBasemap?.toString()
+        List selectedCenter = normalizeCenter(params.centerLng, params.centerLat, viewerConfig.center)
+        BigDecimal selectedZoom = asBigDecimal(params.zoom, asBigDecimal(viewerConfig.zoom, new BigDecimal('6')))
 
         if (!selectedLayer || !layers.containsKey(selectedLayer)) {
             selectedLayer = layers.find { String key, Map layer -> layer.enabled }?.key ?: layers.keySet().find()
@@ -42,8 +44,8 @@ class MapController {
             wfsUrl          : geoserverConfig.wfsUrl?.toString() ?: '',
             defaultSrs      : geoserverConfig.defaultSrs?.toString() ?: 'EPSG:4326',
             requestTimeoutMs: asInteger(geoserverConfig.requestTimeoutMs, 5000),
-            center          : viewerConfig.center ?: [-106.0, 34.5],
-            zoom            : viewerConfig.zoom ?: 6,
+            center          : selectedCenter,
+            zoom            : selectedZoom,
             zoomLevels      : normalizeZoomLevels(viewerConfig.zoomLevels),
             maxFeatures     : viewerConfig.maxFeatures ?: 500,
             selectedLayer   : selectedLayer,
@@ -239,6 +241,18 @@ class MapController {
         }.unique().sort()
     }
 
+    private List<BigDecimal> normalizeCenter(Object lngValue, Object latValue, Object rawDefaultCenter) {
+        List fallback = rawDefaultCenter instanceof Collection && rawDefaultCenter.size() >= 2
+            ? rawDefaultCenter as List
+            : [-106.0, 34.5]
+        BigDecimal defaultLng = asBigDecimal(fallback[0], new BigDecimal('-106.0'))
+        BigDecimal defaultLat = asBigDecimal(fallback[1], new BigDecimal('34.5'))
+        BigDecimal lng = asBigDecimal(lngValue, defaultLng)
+        BigDecimal lat = asBigDecimal(latValue, defaultLat)
+
+        [lng, lat]
+    }
+
     private Map asMap(Object value) {
         if (value instanceof Map) {
             return value.collectEntries { Object key, Object entryValue ->
@@ -267,5 +281,21 @@ class MapController {
         }
 
         value.toString().isInteger() ? value.toString() as int : defaultValue
+    }
+
+    private BigDecimal asBigDecimal(Object value, BigDecimal defaultValue) {
+        if (value == null) {
+            return defaultValue
+        }
+
+        if (value instanceof Number) {
+            return value as BigDecimal
+        }
+
+        try {
+            return new BigDecimal(value.toString())
+        } catch (ignored) {
+            return defaultValue
+        }
     }
 }

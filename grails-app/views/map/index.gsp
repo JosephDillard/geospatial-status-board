@@ -16,7 +16,7 @@
             <h1>Map View</h1>
             <p>Geospatial view of airport, airfield, and incident status layers.</p>
         </div>
-        <g:form controller="map" action="index" method="GET" class="geo-map-form">
+        <g:form controller="map" action="index" method="GET" class="geo-map-form" id="geo-map-form">
             <button id="geo-filter-toggle"
                     type="button"
                     class="geo-map-form-toggle"
@@ -41,10 +41,16 @@
 
                 <div class="geo-map-field">
                     <label for="value">Filter value</label>
-                    <input id="value" name="value" type="text" value="${selectedValue}"/>
+                    <select id="value" name="value" data-selected-value="${selectedValue}">
+                        <option value="${selectedValue}">${selectedValue ?: 'All'}</option>
+                    </select>
                 </div>
             </div>
 
+            <input id="geo-map-form-basemap" name="basemap" type="hidden" value="${selectedBasemap}"/>
+            <input id="geo-map-form-center-lng" name="centerLng" type="hidden"/>
+            <input id="geo-map-form-center-lat" name="centerLat" type="hidden"/>
+            <input id="geo-map-form-zoom" name="zoom" type="hidden"/>
             <button type="submit" class="btn btn-primary">Load</button>
         </g:form>
     </section>
@@ -341,6 +347,7 @@
     var statusToggle = document.getElementById('geo-map-status-toggle');
     var statusCount = document.getElementById('geo-map-status-count');
     var statusIcon = document.getElementById('geo-map-status-icon');
+    var mapForm = document.getElementById('geo-map-form');
     var layerToggle = document.getElementById('geo-layer-toggle');
     var layerDrawer = document.getElementById('geo-layer-drawer');
     var layerClose = document.getElementById('geo-layer-close');
@@ -354,6 +361,11 @@
     var filterFields = document.getElementById('geo-filter-fields');
     var filterLayerSelect = document.getElementById('layer');
     var filterFieldSelect = document.getElementById('field');
+    var filterValueSelect = document.getElementById('value');
+    var formBasemap = document.getElementById('geo-map-form-basemap');
+    var formCenterLng = document.getElementById('geo-map-form-center-lng');
+    var formCenterLat = document.getElementById('geo-map-form-center-lat');
+    var formZoom = document.getElementById('geo-map-form-zoom');
     var coordinatePanel = document.getElementById('geo-coordinate-panel');
     var coordinateOutput = document.getElementById('geo-coordinate-output');
     var coordinateFormat = document.getElementById('geo-coordinate-format');
@@ -412,6 +424,7 @@
     var layerIssueState = {};
     var layerFilters = {};
     var persistedLayerFilterOptions = {};
+    var initialFilterFitDone = false;
     var measureMode = false;
     var measurePoints = [];
     var incidentCreateMode = false;
@@ -540,6 +553,55 @@
             filterFieldSelect.appendChild(option);
         });
         filterFieldSelect.value = fields.indexOf(selectedField) >= 0 ? selectedField : (fields[0] || '');
+        filterFieldSelect.setAttribute('data-selected-field', filterFieldSelect.value);
+    }
+
+    function topFilterSelectedValue() {
+        return filterValueSelect ? (filterValueSelect.getAttribute('data-selected-value') || filterValueSelect.value || '') : '';
+    }
+
+    function fieldOptionsFromFeatures(features, field) {
+        var values = [];
+        (features || []).forEach(function (feature) {
+            var rawValue = feature.properties ? feature.properties[field] : null;
+            var value = String(rawValue == null ? '' : rawValue);
+            if (value && values.indexOf(value) < 0) {
+                values.push(value);
+            }
+        });
+        return values.sort();
+    }
+
+    function populateTopFilterValues() {
+        if (!filterLayerSelect || !filterFieldSelect || !filterValueSelect) {
+            return;
+        }
+
+        var layerKey = filterLayerSelect.value;
+        var field = filterFieldSelect.value;
+        var selectedValue = topFilterSelectedValue();
+        var state = internalLayerState[layerKey] || {};
+        var options = field ? fieldOptionsFromFeatures(((state.rawData || {}).features || []), field) : [];
+        if (selectedValue && options.indexOf(selectedValue) < 0) {
+            options.unshift(selectedValue);
+        }
+
+        filterValueSelect.innerHTML = '';
+        var allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'All';
+        filterValueSelect.appendChild(allOption);
+
+        options.forEach(function (value) {
+            var option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            option.title = value;
+            filterValueSelect.appendChild(option);
+        });
+
+        filterValueSelect.value = selectedValue && options.indexOf(selectedValue) >= 0 ? selectedValue : '';
+        filterValueSelect.disabled = !field || (options.length === 0 && !selectedValue);
     }
 
     function geoAiConfig() {
@@ -1464,6 +1526,9 @@
     function applyBasemap(key) {
         if (key && config.basemaps && config.basemaps[key]) {
             activeBasemapKey = key;
+            if (formBasemap) {
+                formBasemap.value = activeBasemapKey;
+            }
         }
         var basemap = selectedBasemap();
         if (map.getLayer(basemapLayerId)) {
@@ -1492,6 +1557,26 @@
             }, firstOperationalLayerId());
         }
         updateBasemapCards();
+    }
+
+    function updateMapFormState() {
+        if (!map) {
+            return;
+        }
+        var center = map.getCenter();
+        var selectedValue = filterValueSelect ? filterValueSelect.value : '';
+        if (formBasemap) {
+            formBasemap.value = activeBasemapKey || '';
+        }
+        if (formCenterLng) {
+            formCenterLng.value = center.lng.toFixed(6);
+        }
+        if (formCenterLat) {
+            formCenterLat.value = center.lat.toFixed(6);
+        }
+        if (formZoom) {
+            formZoom.value = Math.max(map.getZoom(), selectedValue ? 16 : 0).toFixed(2);
+        }
     }
 
     function updateBasemapCards() {
@@ -1840,10 +1925,13 @@
         if (!result || !result.coordinates) {
             return;
         }
+        if (activePlaceSearchPopup) {
+            activePlaceSearchPopup.setLngLat(result.coordinates);
+        }
         map.easeTo({
             center: result.coordinates,
-            zoom: map.getZoom(),
-            duration: 450,
+            zoom: Math.max(map.getZoom(), 16),
+            duration: 650,
             essential: true
         });
     }
@@ -1856,8 +1944,11 @@
 
         var items = results.map(function (result, index) {
             var distance = formatPlaceDistance(result.distance);
-            return '<li data-place-result-index="' + index + '" tabindex="0"><a href="' + escapeHtml(result.url) + '" target="_blank" rel="noopener">' +
+            return '<li data-place-result-index="' + index + '" tabindex="0">' +
+                '<div class="geo-place-search-result-title"><a href="' + escapeHtml(result.url) + '" target="_blank" rel="noopener">' +
                 escapeHtml(result.title || 'Untitled place') + '</a>' +
+                '<button type="button" class="geo-place-search-result-zoom" data-place-result-zoom="' + index +
+                '" aria-label="Zoom to ' + escapeHtml(result.title || 'place') + '">Go</button></div>' +
                 (distance ? '<span>' + escapeHtml(distance) + '</span>' : '') +
                 (result.summary ? '<p>' + escapeHtml(result.summary) + '</p>' : '') +
                 '</li>';
@@ -1878,21 +1969,32 @@
             return;
         }
         Array.prototype.forEach.call(popupElement.querySelectorAll('[data-place-result-index]'), function (item) {
-            var activate = function () {
+            var highlight = function () {
                 var index = Number(item.getAttribute('data-place-result-index'));
                 if (!Number.isFinite(index)) {
                     return;
                 }
                 setActivePlaceSearchResult(index);
-                panToPlaceSearchResult(placeSearchResults[index]);
             };
-            item.addEventListener('mouseenter', activate);
-            item.addEventListener('focusin', activate);
+            item.addEventListener('mouseenter', highlight);
+            item.addEventListener('focusin', highlight);
             item.addEventListener('mouseleave', function () {
                 setActivePlaceSearchResult(null);
             });
             item.addEventListener('focusout', function () {
                 setActivePlaceSearchResult(null);
+            });
+        });
+        Array.prototype.forEach.call(popupElement.querySelectorAll('[data-place-result-zoom]'), function (button) {
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                var index = Number(button.getAttribute('data-place-result-zoom'));
+                if (!Number.isFinite(index)) {
+                    return;
+                }
+                setActivePlaceSearchResult(index);
+                panToPlaceSearchResult(placeSearchResults[index]);
             });
         });
     }
@@ -2952,6 +3054,15 @@
             rawData: rawData,
             data: data
         };
+        if (filterLayerSelect && filterLayerSelect.value === key) {
+            populateTopFilterValues();
+        }
+        if (!initialFilterFitDone && config.selectedLayer === key && config.filter && config.filter.value) {
+            initialFilterFitDone = true;
+            window.setTimeout(function () {
+                fitToFeatures((data || {}).features || []);
+            }, 0);
+        }
         if (key === 'currentIncidents') {
             clearLocalCreatedIncidents();
         }
@@ -3283,7 +3394,7 @@
             }
         });
         if (coordinateCount > 0) {
-            map.fitBounds(bounds, { padding: 70, maxZoom: 15 });
+            map.fitBounds(bounds, { padding: 70, maxZoom: 16 });
         }
     }
 
@@ -3578,6 +3689,7 @@
     }
 
     populateTopFilterFields();
+    populateTopFilterValues();
     setFilterOpen(!!(filterFields && !filterFields.hidden));
     populateZoomLevels();
     viewTools.hidden = !config.tools.fitLayer;
@@ -3779,8 +3891,29 @@
             if (filterFieldSelect) {
                 filterFieldSelect.setAttribute('data-selected-field', '');
             }
+            if (filterValueSelect) {
+                filterValueSelect.setAttribute('data-selected-value', '');
+            }
             populateTopFilterFields();
+            populateTopFilterValues();
         });
+    }
+    if (filterFieldSelect) {
+        filterFieldSelect.addEventListener('change', function () {
+            filterFieldSelect.setAttribute('data-selected-field', filterFieldSelect.value || '');
+            if (filterValueSelect) {
+                filterValueSelect.setAttribute('data-selected-value', '');
+            }
+            populateTopFilterValues();
+        });
+    }
+    if (filterValueSelect) {
+        filterValueSelect.addEventListener('change', function () {
+            filterValueSelect.setAttribute('data-selected-value', filterValueSelect.value || '');
+        });
+    }
+    if (mapForm) {
+        mapForm.addEventListener('submit', updateMapFormState);
     }
     if (basemapToggle) {
         basemapToggle.addEventListener('click', function () {

@@ -2255,10 +2255,41 @@ img.grails-logo {
     outline: none;
 }
 
+.geo-place-search-result-title {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.35rem;
+    justify-content: space-between;
+}
+
 .geo-place-search-results a {
     color: #ffffff;
+    flex: 1 1 auto;
     font-weight: 800;
+    min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.geo-place-search-result-zoom {
+    background: rgba(15, 53, 96, 0.92);
+    border: 1px solid rgba(147, 197, 253, 0.48);
+    border-radius: 4px;
+    color: #eef6ff;
+    cursor: pointer;
+    flex: 0 0 auto;
+    font-size: 0.64rem;
+    font-weight: 800;
+    line-height: 1;
+    min-height: 22px;
+    padding: 0.18rem 0.36rem;
+}
+
+.geo-place-search-result-zoom:hover,
+.geo-place-search-result-zoom:focus {
+    background: #38bdf8;
+    border-color: #7dd3fc;
+    color: #031525;
+    outline: none;
 }
 
 .geo-place-search-results span {
