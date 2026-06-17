@@ -36,8 +36,18 @@ The app is served under `/GeoStatusBoard`.
 
 - The default app path uses H2. Enable the `postgis` Spring profile only when
   testing against the Docker PostGIS stack.
+- The map currently pins MapLibre GL JS/CSS to `maplibre-gl@5.24.0` in
+  `geo.viewer.mapLibreJsUrl` and `geo.viewer.mapLibreCssUrl`. Keep the
+  fallback URLs in `MapController.groovy` aligned with those config values.
 - Keep the map usable when GeoServer, GeoAI, or the data gateway are offline.
   Failure states should be visible without breaking base map interaction.
+- Coordinate copy mode supports multiple temporary coordinate markers. Marker
+  popups own the copy, timestamp, Google Maps, and clear actions.
+- The minimap is a second lightweight MapLibre instance using the selected
+  basemap only. Do not load operational WFS or GeoAI layers into the overview.
+- GeoAI map requests should include normalized drawn AOIs in
+  `map_context.aoi_geojson` when polygons are present; only fall back to the map
+  bbox when no valid drawn AOI exists.
 - The map's local SignalR refresh integration is configured under
   `geo.gateway` and currently targets the data gateway hub.
 - The local GeoAI Docker profile assumes the sibling repo path

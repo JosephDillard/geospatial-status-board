@@ -5,7 +5,7 @@ The status app uses a split responsibility model for geospatial data:
 - Grails and GORM continue to read and write status attributes in the operational tables.
 - PostGIS stores geometry in `geom` columns on those same operational tables.
 - GeoServer publishes those tables as WFS layers with GeoJSON output.
-- MapLibre GL JS renders the GeoJSON layers in the browser at `/GeoStatusBoard/map`.
+- MapLibre GL JS 5.24.0 renders the GeoJSON layers in the browser at `/GeoStatusBoard/map`.
 
 This keeps the existing Grails domains stable while allowing open source GIS services to own spatial querying and map delivery.
 
@@ -26,7 +26,7 @@ PostGIS output loading used by that map.
 
 - PostgreSQL with PostGIS for spatial storage.
 - GeoServer for OGC services, especially WFS GeoJSON.
-- MapLibre GL JS for the in-app 2D map viewer.
+- MapLibre GL JS 5.24.0 for the in-app 2D map viewer.
 
 CesiumJS can be added later for 3D terrain, 3D Tiles, or globe-focused workflows. For the current dashboard and airport/airfield status use case, MapLibre is the lighter first map surface.
 
@@ -90,7 +90,12 @@ Existing GSP links can open a filtered layer by passing:
 /GeoStatusBoard/map?layer=airportStatus&field=site_name&value=Kirtland%20AFB
 ```
 
-The map page builds a WFS request to GeoServer, loads GeoJSON into MapLibre, adds point, line, and polygon layers, fits to returned features, and displays feature attributes in a popup.
+The map page builds a WFS request to GeoServer, loads GeoJSON into MapLibre, adds point, line, and polygon layers, fits to returned features, and displays feature attributes in a popup. Coordinate copy mode can leave multiple temporary coordinate markers on the map; each marker popup shows MGRS, Lat/Lon, DMS, timestamp, copy, Google Maps, and clear actions.
+
+The map also creates a basemap-only minimap using a second lightweight MapLibre
+instance. The minimap follows the selected basemap, draws a red outline around
+the current main-map view, and lets the user click or drag the overview to move
+the main map without duplicating operational WFS layers.
 
 ## Configuration
 
@@ -106,7 +111,7 @@ Important keys:
 - `geo.geoai.apiUrl` and `geo.geoai.healthUrl` - GeoAI workflow API endpoint and health endpoint.
 - `geo.health.requestTimeoutMs` - timeout for map service health checks.
 - `geo.geoserver.defaultSrs` - Target spatial reference, default `EPSG:4326`.
-- `geo.viewer.mapLibreJsUrl` and `geo.viewer.mapLibreCssUrl` - MapLibre assets.
+- `geo.viewer.mapLibreJsUrl` and `geo.viewer.mapLibreCssUrl` - MapLibre assets, currently pinned to `maplibre-gl@5.24.0`.
 - `geo.viewer.osmTilesUrl` - Raster basemap tile URL.
 - `geo.layers` - App layer key to GeoServer feature type and filter fields.
 
@@ -133,4 +138,7 @@ need to call the GeoAI API host directly:
 
 Each map-submitted job includes `request_source: external_app`, `submitted_by:
 geospatial-status-board`, the selected `model_id`, the current bounding box, map
-center, zoom, selected layer, and any drawn AOI GeoJSON.
+center, zoom, selected layer, and any drawn AOI GeoJSON. Drawn AOI polygons are
+normalized before submission, including selected or active draw features and
+closed polygon rings, so valid polygons are sent as `map_context.aoi_geojson`
+instead of the workflow relying only on the current map-view bbox.

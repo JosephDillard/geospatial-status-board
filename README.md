@@ -6,8 +6,10 @@ This repository contains a status app linkable to geospatial data for dashboard 
 
 - Airport and airfield status dashboards.
 - Geospatial links from status records into the map view.
-- MapLibre map view backed by GeoServer WFS/GeoJSON layers, including optional GeoAI detection outputs.
+- MapLibre GL JS 5.24.0 map view backed by GeoServer WFS/GeoJSON layers, including optional GeoAI detection outputs.
 - Configurable basemaps, layer selection, feature filtering, fit-to-layer, fullscreen, distance measurement, drawing, and coordinate readout with MGRS support.
+- Temporary coordinate markers with per-marker copy, timestamp, clear, and Google Maps actions.
+- Basemap-only minimap overview with a red current-view outline that can move the main map view.
 - Editable lookup tables for dropdown text used by airport and incident workflows.
 - Development bootstrap data for New Mexico airports and airfields, current status, runway surface condition, support assets, utilities, current incidents, and archived incidents.
 - Single deployable WAR with the application served from `/GeoStatusBoard`.
@@ -29,7 +31,7 @@ The screenshot above shows the geospatial status map with GeoAI detections, the 
 - Spring Security
 - H2 development and test databases
 - PostGIS and GeoServer for open source GIS deployment
-- MapLibre GL JS for the browser map
+- MapLibre GL JS 5.24.0 for the browser map
 - Docker Compose for optional local GIS and GeoAI infrastructure
 
 ## Project Layout
@@ -286,12 +288,26 @@ GSP links can open the map with a selected layer and feature filter, for example
 /GeoStatusBoard/map?layer=airportStatus&field=site_name&value=Kirtland%20AFB
 ```
 
-The map configuration lives under `geo.viewer`, `geo.geoserver`, and `geo.layers` in `grails-app/conf/application.yml`. The current default basemaps are CARTO Dark Blue and OpenStreetMap, and configured layers include airport status, current airfield status, airfield surface status, NAVAIDs, engineer assets, fire fighting assets, utility status, GeoAI COG footprints, GeoAI detections, current incidents, and incident archive.
+The map configuration lives under `geo.viewer`, `geo.geoserver`, and `geo.layers` in `grails-app/conf/application.yml`. MapLibre GL JS and CSS are pinned to `maplibre-gl@5.24.0` through `geo.viewer.mapLibreJsUrl` and `geo.viewer.mapLibreCssUrl`; the controller fallback uses the same exact version. The current default basemaps are CARTO Dark Blue and OpenStreetMap, and configured layers include airport status, current airfield status, airfield surface status, NAVAIDs, engineer assets, fire fighting assets, utility status, GeoAI COG footprints, GeoAI detections, current incidents, and incident archive.
+
+Coordinate copy mode leaves temporary coordinate markers on the map. Multiple
+markers can be kept at once; clicking a marker reselects that coordinate,
+updates the coordinate readout, and opens an attribute popup with MGRS, Lat/Lon,
+DMS, timestamp, copy, Google Maps, and clear actions. The small marker button in
+the coordinate readout clears the active marker without clearing the rest.
+
+The map includes a basemap-only minimap overview. The minimap draws a red outline
+around the current main-map view, follows basemap changes, and can be clicked or
+dragged to move the main map without loading operational WFS layers into the
+overview.
 
 The map also includes a compact GeoAI request panel. It loads model choices from the
 GeoAI API through same-origin Grails proxy routes, submits the selected model,
 workflow, current MapLibre extent, and optional drawn AOI, then polls the returned run
-id:
+id. Drawn AOI polygons are normalized before submission, including selected or
+active draw features and closed polygon rings, so the GeoAI API receives
+`map_context.aoi_geojson` instead of silently falling back to only the current
+map view:
 
 - `GET /GeoStatusBoard/geoAi/options`
 - `POST /GeoStatusBoard/geoAi/runs`
@@ -335,7 +351,7 @@ The recommended open source GIS stack is:
 
 - PostGIS for geospatial columns and spatial indexes in the operational database.
 - GeoServer for publishing database tables as WFS GeoJSON layers.
-- MapLibre GL JS for the browser map view.
+- MapLibre GL JS 5.24.0 for the browser map view.
 
 The Grails domains continue to read and write regular status fields through GORM. GeoServer reads geometry from PostGIS and supplies the map API. Weather, imagery, flight, road, or other external feeds can be added as additional GeoServer-published layers or direct map tile/vector services when the provider terms allow it.
 
@@ -353,8 +369,9 @@ See:
 - Added GeoServer WFS timeout handling so missing local GeoServer services fail gracefully in the map status panel.
 - Added PostgreSQL-safe table/formula mappings for the local PostGIS development profile.
 - Added development sample geometries for the bootstrapped New Mexico records.
-- Added editable lookup tables, richer New Mexico bootstrap data, and MapLibre map tools for basemaps, layers, feature filtering, measurement, drawing, fullscreen, MGRS, and coordinate readout.
-- Added top-nav health indicators and a MapLibre GeoAI request panel for submitting map-context jobs to the GeoAI workflow API.
+- Added editable lookup tables, richer New Mexico bootstrap data, and MapLibre map tools for basemaps, layers, feature filtering, measurement, drawing, fullscreen, MGRS, coordinate readout, temporary coordinate markers, and a basemap-only minimap.
+- Added top-nav health indicators and a MapLibre GeoAI request panel for submitting map-context jobs with normalized drawn AOIs to the GeoAI workflow API.
+- Pinned MapLibre GL JS/CSS assets to stable `maplibre-gl@5.24.0`.
 
 ## Data Sources
 
