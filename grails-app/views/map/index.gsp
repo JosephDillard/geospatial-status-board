@@ -422,6 +422,7 @@
     var activeBasemapKey = config.selectedBasemap;
     var internalLayerState = {};
     var internalLayerRequestSeq = 0;
+    var topFilterRequestSeq = 0;
     var externalLayerState = {};
     var renderLayerToLayerKey = {};
     var layerIssueState = {};
@@ -452,6 +453,10 @@
     var gatewaySocket = null;
     var gatewayReconnectTimer = null;
     var gatewayConnected = false;
+
+    function mapPointRadius(radius) {
+        return Number(radius || 0) * 1.5;
+    }
 
     function setStatus(message, isError) {
         var collapsed = statusEl.classList.contains('is-collapsed');
@@ -618,6 +623,43 @@
         filterValueSelect.value = selectedValue && options.indexOf(selectedValue) >= 0 ? selectedValue : '';
         filterValueSelect.setAttribute('data-selected-value', filterValueSelect.value);
         filterValueSelect.disabled = !field || (options.length === 0 && !selectedValue);
+    }
+
+    function loadTopFilterOptions(key) {
+        var layer = (config.layers || {})[key];
+        if (!layer || !config.wfsUrl) {
+            return;
+        }
+        var requestId = ++topFilterRequestSeq;
+        if (filterValueSelect) {
+            filterValueSelect.disabled = true;
+        }
+
+        fetchWfsJson(key, layer, { unfiltered: true })
+            .then(function (geojson) {
+                if (requestId !== topFilterRequestSeq || !filterLayerSelect || filterLayerSelect.value !== key) {
+                    return;
+                }
+                var state = internalLayerState[key] || {};
+                internalLayerState[key] = Object.assign({}, state, {
+                    rawData: decorateGeoJson(key, geojson)
+                });
+                populateTopFilterValues();
+            })
+            .catch(function () {
+                if (requestId === topFilterRequestSeq && filterValueSelect) {
+                    filterValueSelect.disabled = true;
+                }
+            });
+    }
+
+    function refreshTopFilterValuesForSelection() {
+        populateTopFilterValues();
+        var key = filterLayerSelect ? filterLayerSelect.value : '';
+        var state = internalLayerState[key] || {};
+        if (key && !state.rawData) {
+            loadTopFilterOptions(key);
+        }
     }
 
     function geoAiConfig() {
@@ -1624,7 +1666,8 @@
         return field + "='" + String(value).replace(/'/g, "''") + "'";
     }
 
-    function buildWfsUrl(key, layer) {
+    function buildWfsUrl(key, layer, options) {
+        options = options || {};
         var url = new URL(config.wfsUrl, window.location.origin);
         url.searchParams.set('service', 'WFS');
         url.searchParams.set('version', '1.0.0');
@@ -1634,16 +1677,14 @@
         url.searchParams.set('srsName', config.defaultSrs || 'EPSG:4326');
         url.searchParams.set('maxFeatures', layer.maxFeatures || config.maxFeatures || 500);
 
-        if (layer.filterField && layerFilterValue(key)) {
+        if (!options.unfiltered && layer.filterField && layerFilterValue(key)) {
             url.searchParams.set('CQL_FILTER', cqlEquals(layer.filterField, layerFilterValue(key)));
-        } else if (config.selectedLayer === key && config.filter && config.filter.field && config.filter.value) {
-            url.searchParams.set('CQL_FILTER', cqlEquals(config.filter.field, config.filter.value));
         }
 
         return url.toString();
     }
 
-    function fetchWfsJson(key, layer) {
+    function fetchWfsJson(key, layer, options) {
         var timeoutMs = Number(config.requestTimeoutMs || 5000);
         var requestOptions = { credentials: 'same-origin' };
         var timeoutId = null;
@@ -1656,7 +1697,7 @@
             }, timeoutMs);
         }
 
-        return fetch(buildWfsUrl(key, layer), requestOptions)
+        return fetch(buildWfsUrl(key, layer, options), requestOptions)
             .then(function (response) {
                 if (!response.ok) {
                     throw new Error('GeoServer returned HTTP ' + response.status);
@@ -1894,8 +1935,8 @@
                     'circle-radius': [
                         'case',
                         ['boolean', ['get', 'active'], false],
-                        10,
-                        7
+                        mapPointRadius(10),
+                        mapPointRadius(7)
                     ],
                     'circle-color': [
                         'case',
@@ -2285,7 +2326,7 @@
                 filter: ['==', '$type', 'Point'],
                 paint: {
                     'circle-color': '#38bdf8',
-                    'circle-radius': 5,
+                    'circle-radius': mapPointRadius(5),
                     'circle-stroke-color': '#e0f2fe',
                     'circle-stroke-width': 2
                 }
@@ -2692,7 +2733,7 @@
                 source: incidentDraftSourceId,
                 layout: {
                     'icon-image': 'incident-draft',
-                    'icon-size': 0.54,
+                    'icon-size': 1.08,
                     'icon-allow-overlap': true,
                     'icon-ignore-placement': true
                 }
@@ -2711,7 +2752,7 @@
                 source: localIncidentSourceId,
                 layout: {
                     'icon-image': ['get', '__incidentIcon'],
-                    'icon-size': 0.54,
+                    'icon-size': 1.08,
                     'icon-allow-overlap': true,
                     'icon-ignore-placement': true
                 }
@@ -3081,16 +3122,25 @@
 
     function filteredLayerData(key, data) {
         var layer = config.layers[key] || {};
-        var field = layer.filterField;
-        var selected = layerFilterValue(key);
-        if (!field || !selected) {
+        var filters = [];
+        var layerField = layer.filterField;
+        var layerSelected = layerFilterValue(key);
+        if (layerField && layerSelected) {
+            filters.push({ field: layerField, value: layerSelected });
+        }
+        if (config.selectedLayer === key && config.filter && config.filter.field && config.filter.value) {
+            filters.push({ field: config.filter.field, value: config.filter.value });
+        }
+        if (!filters.length) {
             return data;
         }
         return {
             type: 'FeatureCollection',
             features: (data.features || []).filter(function (feature) {
-                var value = feature.properties ? feature.properties[field] : null;
-                return String(value == null ? '' : value) === selected;
+                return filters.every(function (filter) {
+                    var value = feature.properties ? feature.properties[filter.field] : null;
+                    return String(value == null ? '' : value) === filter.value;
+                });
             })
         };
     }
@@ -3316,7 +3366,7 @@
                 filter: ['==', '$type', 'Point'],
                 layout: {
                     'icon-image': ['get', '__incidentIcon'],
-                    'icon-size': 0.54,
+                    'icon-size': 1.08,
                     'icon-allow-overlap': true,
                     'icon-ignore-placement': true
                 }
@@ -3329,7 +3379,7 @@
                 filter: ['==', '$type', 'Point'],
                 paint: {
                     'circle-color': layer.color,
-                    'circle-radius': 7,
+                    'circle-radius': mapPointRadius(7),
                     'circle-stroke-color': '#dbeafe',
                     'circle-stroke-width': 2
                 }
@@ -3524,7 +3574,7 @@
             filter: ['==', '$type', 'Point'],
             paint: {
                 'circle-color': color,
-                'circle-radius': Number(layer.circleRadius == null ? 5 : layer.circleRadius),
+                'circle-radius': mapPointRadius(Number(layer.circleRadius == null ? 5 : layer.circleRadius)),
                 'circle-opacity': 0.88,
                 'circle-stroke-color': '#0f172a',
                 'circle-stroke-width': 1.5
@@ -3588,7 +3638,7 @@
             source: externalSourceIdFor(key),
             paint: {
                 'circle-color': layer.color || '#facc15',
-                'circle-radius': 4.5,
+                'circle-radius': mapPointRadius(4.5),
                 'circle-opacity': 0.88,
                 'circle-stroke-color': '#0f172a',
                 'circle-stroke-width': 1.5
@@ -3814,7 +3864,7 @@
                 filter: ['all', ['==', 'active', 'false'], ['==', '$type', 'Point'], ['==', 'meta', 'feature'], ['!=', 'mode', 'static']],
                 paint: {
                     'circle-color': '#38bdf8',
-                    'circle-radius': 5,
+                    'circle-radius': mapPointRadius(5),
                     'circle-stroke-color': '#e0f2fe',
                     'circle-stroke-width': 2
                 }
@@ -3825,7 +3875,7 @@
                 filter: ['all', ['==', 'active', 'true'], ['==', '$type', 'Point'], ['==', 'meta', 'feature']],
                 paint: {
                     'circle-color': '#facc15',
-                    'circle-radius': 6,
+                    'circle-radius': mapPointRadius(6),
                     'circle-stroke-color': '#fef3c7',
                     'circle-stroke-width': 2
                 }
@@ -3836,7 +3886,7 @@
                 filter: ['all', ['==', 'meta', 'vertex'], ['==', '$type', 'Point']],
                 paint: {
                     'circle-color': '#f8fafc',
-                    'circle-radius': 4,
+                    'circle-radius': mapPointRadius(4),
                     'circle-stroke-color': '#38bdf8',
                     'circle-stroke-width': 2
                 }
@@ -3847,7 +3897,7 @@
                 filter: ['all', ['==', 'meta', 'midpoint'], ['==', '$type', 'Point']],
                 paint: {
                     'circle-color': '#0ea5e9',
-                    'circle-radius': 3
+                    'circle-radius': mapPointRadius(3)
                 }
             }
         ];
@@ -3981,7 +4031,7 @@
     }
 
     populateTopFilterFields();
-    populateTopFilterValues();
+    refreshTopFilterValuesForSelection();
     setFilterOpen(!!(filterFields && !filterFields.hidden));
     populateZoomLevels();
     viewTools.hidden = !config.tools.fitLayer;
@@ -4185,14 +4235,14 @@
             }
             setTopFilterSelectedValue('');
             populateTopFilterFields();
-            populateTopFilterValues();
+            refreshTopFilterValuesForSelection();
         });
     }
     if (filterFieldSelect) {
         filterFieldSelect.addEventListener('change', function () {
             filterFieldSelect.setAttribute('data-selected-field', filterFieldSelect.value || '');
             setTopFilterSelectedValue('');
-            populateTopFilterValues();
+            refreshTopFilterValuesForSelection();
         });
     }
     if (filterValueSelect) {
