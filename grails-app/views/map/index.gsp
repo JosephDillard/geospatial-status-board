@@ -562,8 +562,17 @@
         filterFieldSelect.setAttribute('data-selected-field', filterFieldSelect.value);
     }
 
+    function setTopFilterSelectedValue(value) {
+        if (!filterValueSelect) {
+            return;
+        }
+        var selectedValue = String(value || '');
+        filterValueSelect.setAttribute('data-selected-value', selectedValue);
+        filterValueSelect.value = selectedValue;
+    }
+
     function topFilterSelectedValue() {
-        return filterValueSelect ? (filterValueSelect.getAttribute('data-selected-value') || filterValueSelect.value || '') : '';
+        return filterValueSelect ? String(filterValueSelect.getAttribute('data-selected-value') || '') : '';
     }
 
     function fieldOptionsFromFeatures(features, field) {
@@ -607,6 +616,7 @@
         });
 
         filterValueSelect.value = selectedValue && options.indexOf(selectedValue) >= 0 ? selectedValue : '';
+        filterValueSelect.setAttribute('data-selected-value', filterValueSelect.value);
         filterValueSelect.disabled = !field || (options.length === 0 && !selectedValue);
     }
 
@@ -4173,9 +4183,7 @@
             if (filterFieldSelect) {
                 filterFieldSelect.setAttribute('data-selected-field', '');
             }
-            if (filterValueSelect) {
-                filterValueSelect.setAttribute('data-selected-value', '');
-            }
+            setTopFilterSelectedValue('');
             populateTopFilterFields();
             populateTopFilterValues();
         });
@@ -4183,15 +4191,13 @@
     if (filterFieldSelect) {
         filterFieldSelect.addEventListener('change', function () {
             filterFieldSelect.setAttribute('data-selected-field', filterFieldSelect.value || '');
-            if (filterValueSelect) {
-                filterValueSelect.setAttribute('data-selected-value', '');
-            }
+            setTopFilterSelectedValue('');
             populateTopFilterValues();
         });
     }
     if (filterValueSelect) {
         filterValueSelect.addEventListener('change', function () {
-            filterValueSelect.setAttribute('data-selected-value', filterValueSelect.value || '');
+            setTopFilterSelectedValue(filterValueSelect.value);
         });
     }
     if (mapForm) {
