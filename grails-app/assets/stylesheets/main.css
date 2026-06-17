@@ -1500,6 +1500,11 @@ img.grails-logo {
     width: 42px;
 }
 
+.geo-place-search-control {
+    display: grid;
+    gap: 0.24rem;
+}
+
 .geo-zoom-control {
     backdrop-filter: blur(12px);
     background: var(--geo-map-panel-strong);
@@ -1570,6 +1575,29 @@ img.grails-logo {
 .geo-map-square-button:disabled {
     cursor: default;
     opacity: 0.5;
+}
+
+.geo-place-search-clear {
+    background: rgba(11, 39, 73, 0.9);
+    border: 1px solid var(--geo-map-border);
+    border-radius: 5px;
+    color: #eef6ff;
+    cursor: pointer;
+    font-size: 0.64rem;
+    font-weight: 800;
+    height: 24px;
+    line-height: 1;
+    padding: 0;
+    text-align: center;
+    width: 42px;
+}
+
+.geo-place-search-clear:hover,
+.geo-place-search-clear:focus {
+    background: #38bdf8;
+    border-color: #7dd3fc;
+    color: #031525;
+    outline: none;
 }
 
 .geo-north-arrow-button {
@@ -2059,8 +2087,10 @@ img.grails-logo {
 
 .geo-coordinate-panel output {
     color: #e6f0ff;
+    flex: 1 1 auto;
     font-size: 0.78rem;
     line-height: 1.15;
+    min-width: 0;
     max-width: min(320px, calc(100vw - 238px));
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2069,6 +2099,32 @@ img.grails-logo {
 
 .geo-coordinate-panel.is-copied output {
     color: #031525;
+}
+
+.geo-coordinate-map-search {
+    background: rgba(15, 53, 96, 0.92);
+    border: 1px solid rgba(147, 197, 253, 0.42);
+    border-radius: 4px;
+    color: #eef6ff;
+    cursor: pointer;
+    flex: 0 0 auto;
+    font-size: 0.66rem;
+    font-weight: 800;
+    height: 28px;
+    padding: 0 0.32rem;
+}
+
+.geo-coordinate-map-search:hover,
+.geo-coordinate-map-search:focus {
+    background: #38bdf8;
+    border-color: #7dd3fc;
+    color: #031525;
+    outline: none;
+}
+
+.geo-coordinate-panel.is-copied .geo-coordinate-map-search {
+    background: rgba(3, 21, 37, 0.9);
+    border-color: rgba(3, 21, 37, 0.35);
 }
 
 .geo-draw-summary {
@@ -2188,7 +2244,15 @@ img.grails-logo {
 }
 
 .geo-place-search-results li {
+    border-radius: 4px;
     padding-left: 0.15rem;
+}
+
+.geo-place-search-results li:hover,
+.geo-place-search-results li:focus,
+.geo-place-search-results li:focus-within {
+    background: rgba(56, 189, 248, 0.18);
+    outline: none;
 }
 
 .geo-place-search-results a {

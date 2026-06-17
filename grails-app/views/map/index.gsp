@@ -149,6 +149,14 @@
                         title="Search nearby Wikipedia places">
                     Wiki
                 </button>
+                <button id="geo-place-search-clear"
+                        type="button"
+                        class="geo-place-search-clear"
+                        aria-label="Clear Wikipedia search results"
+                        title="Clear Wikipedia search results"
+                        hidden>
+                    Clear
+                </button>
             </div>
             <div id="geo-ai-tools" class="geo-ai-control">
                 <button id="geo-ai-toggle"
@@ -229,6 +237,14 @@
                 <input id="geo-coordinate-click-copy" type="checkbox" aria-label="Copy selected coordinate when clicking the map"/>
             </label>
             <output id="geo-coordinate-output">Move over map</output>
+            <button id="geo-coordinate-map-search"
+                    type="button"
+                    class="geo-coordinate-map-search"
+                    aria-label="Search copied MGRS coordinate in Google Maps"
+                    title="Search copied MGRS coordinate in Google Maps"
+                    hidden>
+                Maps
+            </button>
         </div>
         <aside id="geo-incident-create-panel" class="geo-incident-create-panel" aria-label="Create incident" hidden>
             <div class="geo-incident-create-header">
@@ -357,6 +373,7 @@
     var incidentSave = document.getElementById('geo-incident-save');
     var placeSearchTools = document.getElementById('geo-place-search-tools');
     var placeSearchToggle = document.getElementById('geo-place-search-toggle');
+    var placeSearchClear = document.getElementById('geo-place-search-clear');
     var geoAiTools = document.getElementById('geo-ai-tools');
     var geoAiToggle = document.getElementById('geo-ai-toggle');
     var geoAiPanel = document.getElementById('geo-ai-panel');
@@ -378,6 +395,8 @@
     var drawOutput = document.getElementById('geo-draw-output');
     var measureSourceId = 'measure-features';
     var measureLayerIds = ['measure-line', 'measure-points'];
+    var placeSearchResultSourceId = 'place-search-results';
+    var placeSearchResultLayerId = 'place-search-result-points';
     var incidentDraftSourceId = 'incident-draft-source';
     var incidentDraftLayerId = 'incident-draft-layer';
     var localIncidentSourceId = 'incident-created-source';
@@ -397,7 +416,12 @@
     var measurePoints = [];
     var incidentCreateMode = false;
     var placeSearchMode = false;
+    var placeSearchResults = [];
+    var activePlaceSearchResultIndex = null;
+    var activePlaceSearchPopup = null;
     var incidentDraft = null;
+    var coordinateMapSearch = document.getElementById('geo-coordinate-map-search');
+    var copiedMgrsSearchUrl = '';
     var localIncidentFeatures = [];
     var hoverCoordinate = null;
     var draw = null;
@@ -1599,6 +1623,15 @@
         return Math.max(100, Math.min(Number(placeSearchConfig().wikipediaRadiusMeters || 10000), 10000));
     }
 
+    function normalizePlaceCoordinate(lng, lat) {
+        var normalizedLng = Number(lng);
+        var normalizedLat = Number(lat);
+        if (!Number.isFinite(normalizedLng) || !Number.isFinite(normalizedLat)) {
+            return null;
+        }
+        return [normalizedLng, normalizedLat];
+    }
+
     function wikipediaTitleUrl(title) {
         return 'https://en.wikipedia.org/wiki/' + encodeURIComponent(String(title || '').replace(/\s+/g, '_'));
     }
@@ -1634,7 +1667,8 @@
                 title: entry.title,
                 summary: '',
                 distance: entry.dist != null ? Number(entry.dist) : null,
-                url: wikipediaTitleUrl(entry.title)
+                url: wikipediaTitleUrl(entry.title),
+                coordinates: normalizePlaceCoordinate(entry.lon, entry.lat)
             };
         });
     }
@@ -1645,7 +1679,8 @@
                 title: entry.title || entry.name,
                 summary: entry.summary || '',
                 distance: entry.distance != null ? Number(entry.distance) * 1000 : null,
-                url: entry.wikipediaUrl ? 'https://' + String(entry.wikipediaUrl).replace(/^https?:\/\//, '') : wikipediaTitleUrl(entry.title || entry.name)
+                url: entry.wikipediaUrl ? 'https://' + String(entry.wikipediaUrl).replace(/^https?:\/\//, '') : wikipediaTitleUrl(entry.title || entry.name),
+                coordinates: normalizePlaceCoordinate(entry.lng, entry.lat)
             };
         });
     }
@@ -1692,15 +1727,136 @@
         return Math.round(meters) + ' m';
     }
 
+    function emptyFeatureCollection() {
+        return {
+            type: 'FeatureCollection',
+            features: []
+        };
+    }
+
+    function placeSearchFeatureCollection() {
+        return {
+            type: 'FeatureCollection',
+            features: placeSearchResults.map(function (result, index) {
+                if (!result.coordinates) {
+                    return null;
+                }
+                return {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: result.coordinates
+                    },
+                    properties: {
+                        resultIndex: index,
+                        title: result.title || 'Untitled place',
+                        distance: formatPlaceDistance(result.distance),
+                        active: activePlaceSearchResultIndex === index
+                    }
+                };
+            }).filter(Boolean)
+        };
+    }
+
+    function updatePlaceSearchResultSource() {
+        if (map && map.getSource(placeSearchResultSourceId)) {
+            map.getSource(placeSearchResultSourceId).setData(placeSearchFeatureCollection());
+            if (map.getLayer(placeSearchResultLayerId)) {
+                map.moveLayer(placeSearchResultLayerId);
+            }
+        }
+        if (placeSearchClear) {
+            placeSearchClear.hidden = !placeSearchResults.length;
+        }
+    }
+
+    function ensurePlaceSearchResultLayer() {
+        if (!map.getSource(placeSearchResultSourceId)) {
+            map.addSource(placeSearchResultSourceId, {
+                type: 'geojson',
+                data: emptyFeatureCollection()
+            });
+        }
+        if (!map.getLayer(placeSearchResultLayerId)) {
+            map.addLayer({
+                id: placeSearchResultLayerId,
+                type: 'circle',
+                source: placeSearchResultSourceId,
+                paint: {
+                    'circle-radius': [
+                        'case',
+                        ['boolean', ['get', 'active'], false],
+                        10,
+                        7
+                    ],
+                    'circle-color': [
+                        'case',
+                        ['boolean', ['get', 'active'], false],
+                        '#facc15',
+                        '#38bdf8'
+                    ],
+                    'circle-opacity': 0.92,
+                    'circle-stroke-color': '#031525',
+                    'circle-stroke-width': [
+                        'case',
+                        ['boolean', ['get', 'active'], false],
+                        3,
+                        2
+                    ]
+                }
+            });
+        }
+    }
+
+    function removeActivePlaceSearchPopup() {
+        if (activePlaceSearchPopup) {
+            activePlaceSearchPopup.remove();
+            activePlaceSearchPopup = null;
+        }
+    }
+
+    function setPlaceSearchResults(results) {
+        placeSearchResults = (results || []).slice(0, placeSearchLimit());
+        activePlaceSearchResultIndex = null;
+        updatePlaceSearchResultSource();
+    }
+
+    function clearPlaceSearchResults(silent) {
+        placeSearchResults = [];
+        activePlaceSearchResultIndex = null;
+        updatePlaceSearchResultSource();
+        removeActivePlaceSearchPopup();
+        if (!silent) {
+            setStatus('Wikipedia search results cleared.');
+        }
+    }
+
+    function setActivePlaceSearchResult(index) {
+        activePlaceSearchResultIndex = Number.isFinite(index) ? index : null;
+        updatePlaceSearchResultSource();
+    }
+
+    function panToPlaceSearchResult(result) {
+        if (!result || !result.coordinates) {
+            return;
+        }
+        map.easeTo({
+            center: result.coordinates,
+            zoom: map.getZoom(),
+            duration: 450,
+            essential: true
+        });
+    }
+
     function placeSearchPopupHtml(payload, lngLat) {
         var results = (payload.results || []).slice(0, placeSearchLimit());
         if (!results.length) {
             return '<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">No nearby Wikipedia places found.</p>';
         }
 
-        var items = results.map(function (result) {
+        var items = results.map(function (result, index) {
             var distance = formatPlaceDistance(result.distance);
-            return '<li><a href="' + escapeHtml(result.url) + '" target="_blank" rel="noopener">' +
+            return '<li data-place-result-index="' + index + '" tabindex="0"><a href="' + escapeHtml(result.url) + '" target="_blank" rel="noopener">' +
                 escapeHtml(result.title || 'Untitled place') + '</a>' +
                 (distance ? '<span>' + escapeHtml(distance) + '</span>' : '') +
                 (result.summary ? '<p>' + escapeHtml(result.summary) + '</p>' : '') +
@@ -1711,6 +1867,34 @@
             '<div class="geo-place-search-meta">' + escapeHtml(payload.source || 'Wikipedia') +
             ' near ' + lngLat.lat.toFixed(5) + ', ' + lngLat.lng.toFixed(5) + '</div>' +
             '<ol class="geo-place-search-results">' + items + '</ol>';
+    }
+
+    function bindPlaceSearchPopupInteractions(popup) {
+        if (!popup || typeof popup.getElement !== 'function') {
+            return;
+        }
+        var popupElement = popup.getElement();
+        if (!popupElement) {
+            return;
+        }
+        Array.prototype.forEach.call(popupElement.querySelectorAll('[data-place-result-index]'), function (item) {
+            var activate = function () {
+                var index = Number(item.getAttribute('data-place-result-index'));
+                if (!Number.isFinite(index)) {
+                    return;
+                }
+                setActivePlaceSearchResult(index);
+                panToPlaceSearchResult(placeSearchResults[index]);
+            };
+            item.addEventListener('mouseenter', activate);
+            item.addEventListener('focusin', activate);
+            item.addEventListener('mouseleave', function () {
+                setActivePlaceSearchResult(null);
+            });
+            item.addEventListener('focusout', function () {
+                setActivePlaceSearchResult(null);
+            });
+        });
     }
 
     function setPlaceSearchMode(active) {
@@ -1731,6 +1915,7 @@
     }
 
     function showPlaceSearchPopup(lngLat) {
+        clearPlaceSearchResults(true);
         var popup = new maplibregl.Popup({
             className: 'geo-map-feature-popup geo-place-search-popup',
             maxWidth: '390px'
@@ -1738,13 +1923,22 @@
             .setLngLat(lngLat)
             .setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">Searching...</p>')
             .addTo(map);
+        activePlaceSearchPopup = popup;
+        popup.on('close', function () {
+            if (activePlaceSearchPopup === popup) {
+                activePlaceSearchPopup = null;
+            }
+        });
 
         fetchPlaceResults(lngLat)
             .then(function (payload) {
+                setPlaceSearchResults(payload.results || []);
                 popup.setHTML(placeSearchPopupHtml(payload, lngLat));
+                bindPlaceSearchPopupInteractions(popup);
                 setStatus('Nearby place search complete.');
             })
             .catch(function (error) {
+                setPlaceSearchResults([]);
                 popup.setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">' + escapeHtml(error.message || 'Search failed') + '</p>');
                 setStatus('Nearby place search failed: ' + (error.message || 'Search failed'), true);
             });
@@ -1991,6 +2185,26 @@
         coordinateOutput.textContent = formatCoordinate(lngLat)[coordinateFormat.value] || '';
     }
 
+    function googleMapsSearchUrl(lngLat) {
+        var digits = Number(config.coordinateDigits || 6);
+        return 'https://www.google.com/maps/search/?api=1&query=' +
+            encodeURIComponent(lngLat.lat.toFixed(digits) + ',' + lngLat.lng.toFixed(digits));
+    }
+
+    function hideCoordinateMapSearch() {
+        copiedMgrsSearchUrl = '';
+        if (coordinateMapSearch) {
+            coordinateMapSearch.hidden = true;
+        }
+    }
+
+    function showCoordinateMapSearch(lngLat) {
+        copiedMgrsSearchUrl = googleMapsSearchUrl(lngLat);
+        if (coordinateMapSearch) {
+            coordinateMapSearch.hidden = false;
+        }
+    }
+
     function flashCoordinateCopied() {
         coordinatePanel.classList.add('is-copied');
         window.setTimeout(function () {
@@ -1999,13 +2213,22 @@
     }
 
     function copyCoordinateAt(lngLat) {
-        var value = formatCoordinate(lngLat)[coordinateFormat.value] || '';
+        var selectedFormat = coordinateFormat.value;
+        var value = formatCoordinate(lngLat)[selectedFormat] || '';
         if (!value) {
+            hideCoordinateMapSearch();
             return;
         }
         coordinateOutput.textContent = value;
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(value).then(flashCoordinateCopied).catch(function () {
+            navigator.clipboard.writeText(value).then(function () {
+                flashCoordinateCopied();
+                if (selectedFormat === 'mgrs' && value !== 'Unavailable') {
+                    showCoordinateMapSearch(lngLat);
+                } else {
+                    hideCoordinateMapSearch();
+                }
+            }).catch(function () {
                 setStatus('Clipboard is not available for this browser session.', true);
             });
         }
@@ -3408,6 +3631,7 @@
             map.resize();
         }, 0);
         ensureMeasureLayers();
+        ensurePlaceSearchResultLayer();
         registerIncidentIcons();
         ensureIncidentOverlayLayers();
 
@@ -3611,6 +3835,11 @@
             setPlaceSearchMode(!placeSearchMode);
         });
     }
+    if (placeSearchClear) {
+        placeSearchClear.addEventListener('click', function () {
+            clearPlaceSearchResults(false);
+        });
+    }
     if (incidentCreateClose) {
         incidentCreateClose.addEventListener('click', function () {
             setIncidentPanelOpen(false);
@@ -3665,6 +3894,9 @@
     }
     if (coordinateFormat) {
         coordinateFormat.addEventListener('change', function () {
+            if (coordinateFormat.value !== 'mgrs') {
+                hideCoordinateMapSearch();
+            }
             if (hoverCoordinate) {
                 updateCoordinateReadout(hoverCoordinate);
             }
@@ -3673,6 +3905,14 @@
     if (coordinateClickCopy) {
         coordinateClickCopy.addEventListener('change', function () {
             setCoordinateCopyMode(coordinateClickCopy.checked);
+        });
+    }
+    if (coordinateMapSearch) {
+        coordinateMapSearch.addEventListener('click', function () {
+            if (!copiedMgrsSearchUrl) {
+                return;
+            }
+            window.open(copiedMgrsSearchUrl, '_blank', 'noopener');
         });
     }
     window.addEventListener('resize', function () {
