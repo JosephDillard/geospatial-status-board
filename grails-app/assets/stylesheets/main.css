@@ -1887,10 +1887,12 @@ img.grails-logo {
     font-size: 0.68rem;
     font-weight: 800;
     line-height: 1.2;
+    overflow-wrap: anywhere;
     text-transform: uppercase;
 }
 
 .geo-incident-field input,
+.geo-incident-field select,
 .geo-incident-field textarea {
     background: rgba(7, 28, 55, 0.84);
     border: 1px solid rgba(147, 197, 253, 0.42);
@@ -1904,12 +1906,17 @@ img.grails-logo {
     width: 100%;
 }
 
+.geo-incident-field select {
+    cursor: pointer;
+}
+
 .geo-incident-field textarea {
     min-height: 76px;
     resize: vertical;
 }
 
 .geo-incident-field input:focus,
+.geo-incident-field select:focus,
 .geo-incident-field textarea:focus {
     border-color: #7dd3fc;
     outline: 2px solid rgba(56, 189, 248, 0.28);

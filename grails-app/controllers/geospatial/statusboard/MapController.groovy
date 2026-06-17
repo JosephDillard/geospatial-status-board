@@ -223,11 +223,59 @@ class MapController {
 
     private Map incidentLookupOptions() {
         [
-            eventTypes     : IncidentLookupOption.valuesFor('incident.eventType'),
-            eventCategories: IncidentLookupOption.valuesFor('incident.eventCategory'),
+            eventTypes     : lookupValues('incident.eventType', defaultIncidentTypes()),
+            eventCategories: lookupValues('incident.eventCategory', defaultIncidentCategories()),
             bases          : IncidentLookupOption.valuesFor('incident.base'),
-            yesNoNa        : IncidentLookupOption.valuesFor('incident.yesNoNa'),
+            yesNoNa        : lookupValues('incident.yesNoNa', ['No', 'Yes']),
             sources        : IncidentLookupOption.valuesFor('incident.source')
+        ]
+    }
+
+    private List<String> lookupValues(String category, List<String> fallback) {
+        List<String> values = IncidentLookupOption.valuesFor(category)
+        values ?: fallback
+    }
+
+    private List<String> defaultIncidentTypes() {
+        [
+            'Airfield Damage',
+            'Airfield Closure',
+            'Aircraft Mishap',
+            'ATC/NAVAID Outage',
+            'C2/Communications Outage',
+            'Cyber Incident',
+            'Facility Damage',
+            'Fire/Smoke',
+            'Fuel/POL Issue',
+            'Hazardous Material',
+            'Medical Emergency',
+            'Road/Access Issue',
+            'Security',
+            'Severe Weather',
+            'Utility Outage',
+            'UXO/Suspicious Object',
+            'Wildlife Hazard'
+        ]
+    }
+
+    private List<String> defaultIncidentCategories() {
+        [
+            'Air Operations',
+            'Communications',
+            'Cyber',
+            'Emergency Response',
+            'Environmental',
+            'Force Protection',
+            'Logistics',
+            'Medical',
+            'Mission Support',
+            'Operational',
+            'Infrastructure',
+            'Safety',
+            'Security',
+            'Transportation',
+            'Utilities',
+            'Weather'
         ]
     }
 

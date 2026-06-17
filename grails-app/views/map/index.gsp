@@ -258,18 +258,32 @@
                 <button id="geo-incident-create-close" type="button" class="geo-map-icon-button" aria-label="Close incident form">x</button>
             </div>
             <form id="geo-incident-create-form" class="geo-incident-create-form">
+                <div class="geo-incident-field-pair">
+                    <div class="geo-incident-field">
+                        <label for="geo-incident-lat">Latitude</label>
+                        <input id="geo-incident-lat" name="latitude" type="text" inputmode="decimal"/>
+                    </div>
+                    <div class="geo-incident-field">
+                        <label for="geo-incident-lon">Longitude</label>
+                        <input id="geo-incident-lon" name="longitude" type="text" inputmode="decimal"/>
+                    </div>
+                </div>
+                <div class="geo-incident-field">
+                    <label for="geo-incident-mgrs">MGRS</label>
+                    <input id="geo-incident-mgrs" name="mgrsCoord" type="text"/>
+                </div>
                 <div class="geo-incident-field">
                     <label for="geo-incident-event-name">Name</label>
                     <input id="geo-incident-event-name" name="eventName" type="text" required/>
                 </div>
                 <div class="geo-incident-field-pair">
                     <div class="geo-incident-field">
-                        <label for="geo-incident-event-type">Type</label>
-                        <input id="geo-incident-event-type" name="eventType" type="text" list="geo-incident-event-type-options" required/>
+                        <label for="geo-incident-event-cat">Category</label>
+                        <select id="geo-incident-event-cat" name="eventCat"></select>
                     </div>
                     <div class="geo-incident-field">
-                        <label for="geo-incident-event-cat">Category</label>
-                        <input id="geo-incident-event-cat" name="eventCat" type="text" list="geo-incident-event-cat-options"/>
+                        <label for="geo-incident-event-type">Type</label>
+                        <select id="geo-incident-event-type" name="eventType" required></select>
                     </div>
                 </div>
                 <div class="geo-incident-field">
@@ -278,7 +292,7 @@
                 </div>
                 <div class="geo-incident-field-pair">
                     <div class="geo-incident-field">
-                        <label for="geo-incident-base">Base</label>
+                        <label for="geo-incident-base">Location</label>
                         <input id="geo-incident-base" name="base" type="text" list="geo-incident-base-options"/>
                     </div>
                     <div class="geo-incident-field">
@@ -288,42 +302,31 @@
                 </div>
                 <div class="geo-incident-field-pair">
                     <div class="geo-incident-field">
-                        <label for="geo-incident-sig-event">Significant</label>
-                        <input id="geo-incident-sig-event" name="sigEvent" type="text" list="geo-incident-yes-no-options" value="No"/>
+                        <label for="geo-incident-sig-event">Significant Event</label>
+                        <select id="geo-incident-sig-event" name="sigEvent">
+                            <option value="No" selected>No</option>
+                            <option value="Yes">Yes</option>
+                        </select>
                     </div>
                     <div class="geo-incident-field">
-                        <label for="geo-incident-air-ops">Air Ops</label>
-                        <input id="geo-incident-air-ops" name="airOpsAffected" type="text" list="geo-incident-yes-no-options" value="No"/>
+                        <label for="geo-incident-air-ops">Affects Operations</label>
+                        <select id="geo-incident-air-ops" name="airOpsAffected">
+                            <option value="No" selected>No</option>
+                            <option value="Yes">Yes</option>
+                        </select>
                     </div>
                 </div>
                 <div class="geo-incident-field">
                     <label for="geo-incident-id">Incident ID</label>
                     <input id="geo-incident-id" name="incidentId" type="text" placeholder="Auto"/>
                 </div>
-                <div class="geo-incident-field-pair">
-                    <div class="geo-incident-field">
-                        <label for="geo-incident-lat">Latitude</label>
-                        <input id="geo-incident-lat" name="latitude" type="text" readonly/>
-                    </div>
-                    <div class="geo-incident-field">
-                        <label for="geo-incident-lon">Longitude</label>
-                        <input id="geo-incident-lon" name="longitude" type="text" readonly/>
-                    </div>
-                </div>
-                <div class="geo-incident-field">
-                    <label for="geo-incident-mgrs">MGRS</label>
-                    <input id="geo-incident-mgrs" name="mgrsCoord" type="text" readonly/>
-                </div>
                 <div class="geo-incident-actions">
                     <button id="geo-incident-save" type="submit" class="btn btn-primary">Save</button>
                     <button id="geo-incident-cancel" type="button" class="geo-map-tool-button">Cancel</button>
                 </div>
             </form>
-            <datalist id="geo-incident-event-type-options"></datalist>
-            <datalist id="geo-incident-event-cat-options"></datalist>
             <datalist id="geo-incident-base-options"></datalist>
             <datalist id="geo-incident-source-options"></datalist>
-            <datalist id="geo-incident-yes-no-options"></datalist>
         </aside>
         <div id="geo-map" class="geo-map-canvas"></div>
     </section>
@@ -2357,12 +2360,36 @@
         });
     }
 
+    function populateIncidentSelect(id, values, placeholder, required) {
+        var select = document.getElementById(id);
+        if (!select) {
+            return;
+        }
+        var selectedValue = select.value || '';
+        select.innerHTML = '';
+        var emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = placeholder || 'Select';
+        emptyOption.disabled = !!required;
+        emptyOption.selected = !selectedValue;
+        select.appendChild(emptyOption);
+        (values || []).forEach(function (value) {
+            var option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            option.title = value;
+            select.appendChild(option);
+        });
+        if (selectedValue && (values || []).indexOf(selectedValue) >= 0) {
+            select.value = selectedValue;
+        }
+    }
+
     function populateIncidentLookups() {
-        populateIncidentDatalist('geo-incident-event-type-options', incidentLookupOptions.eventTypes);
-        populateIncidentDatalist('geo-incident-event-cat-options', incidentLookupOptions.eventCategories);
+        populateIncidentSelect('geo-incident-event-cat', incidentLookupOptions.eventCategories, 'Select category', false);
+        populateIncidentSelect('geo-incident-event-type', incidentLookupOptions.eventTypes, 'Select type', true);
         populateIncidentDatalist('geo-incident-base-options', incidentLookupOptions.bases);
         populateIncidentDatalist('geo-incident-source-options', incidentLookupOptions.sources);
-        populateIncidentDatalist('geo-incident-yes-no-options', incidentLookupOptions.yesNoNa);
     }
 
     function incidentIconIdFor(eventType) {
@@ -2616,6 +2643,40 @@
         updateIncidentSource(localIncidentSourceId, localIncidentFeatures);
     }
 
+    function incidentFeatureKey(feature) {
+        var properties = feature && feature.properties ? feature.properties : {};
+        return String(
+            properties.incident_id ||
+            properties.incidentId ||
+            properties.INCIDENT_ID ||
+            properties.id ||
+            properties.OBJECTID_1 ||
+            properties.objectid_1 ||
+            ''
+        );
+    }
+
+    function pruneLocalCreatedIncidents(rawData) {
+        var loadedKeys = {};
+        ((rawData || {}).features || []).forEach(function (feature) {
+            var key = incidentFeatureKey(feature);
+            if (key) {
+                loadedKeys[key] = true;
+            }
+        });
+        localIncidentFeatures = localIncidentFeatures.filter(function (feature) {
+            var key = incidentFeatureKey(feature);
+            return !key || !loadedKeys[key];
+        });
+        updateIncidentSource(localIncidentSourceId, localIncidentFeatures);
+    }
+
+    function moveLocalIncidentLayerToFront() {
+        if (map.getLayer(localIncidentLayerId)) {
+            map.moveLayer(localIncidentLayerId, firstMeasureLayerId());
+        }
+    }
+
     function clearIncidentDraft() {
         incidentDraft = null;
         updateIncidentSource(incidentDraftSourceId, []);
@@ -2630,6 +2691,91 @@
         if (elements[name]) {
             elements[name].value = value == null ? '' : value;
         }
+    }
+
+    function numberOrNull(value) {
+        var number = Number(String(value == null ? '' : value).trim());
+        return Number.isFinite(number) ? number : null;
+    }
+
+    function coordinatePairFromText(value) {
+        var parts = String(value || '').trim().split(/[,\s]+/).filter(Boolean);
+        if (parts.length < 2) {
+            return null;
+        }
+        var first = numberOrNull(parts[0]);
+        var second = numberOrNull(parts[1]);
+        if (first == null || second == null) {
+            return null;
+        }
+        if (Math.abs(first) <= 90 && Math.abs(second) <= 180) {
+            return { latitude: first, longitude: second };
+        }
+        if (Math.abs(first) <= 180 && Math.abs(second) <= 90) {
+            return { latitude: second, longitude: first };
+        }
+        return null;
+    }
+
+    function decodedMgrsCoordinate(value) {
+        var text = String(value || '').trim();
+        if (!text || !window.mgrs || typeof window.mgrs.toPoint !== 'function') {
+            return null;
+        }
+        try {
+            var point = window.mgrs.toPoint(text);
+            if (!point || point.length < 2) {
+                return null;
+            }
+            return {
+                longitude: Number(point[0]),
+                latitude: Number(point[1])
+            };
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function validLatitudeLongitude(latitude, longitude) {
+        return Number.isFinite(latitude) &&
+            Number.isFinite(longitude) &&
+            Math.abs(latitude) <= 90 &&
+            Math.abs(longitude) <= 180;
+    }
+
+    function syncIncidentDraftFromCoordinateInputs() {
+        var elements = incidentFormElements();
+        var latitudeText = elements.latitude ? elements.latitude.value : '';
+        var longitudeText = elements.longitude ? elements.longitude.value : '';
+        var mgrsText = elements.mgrsCoord ? elements.mgrsCoord.value : '';
+        var pastedPair = coordinatePairFromText(latitudeText) || coordinatePairFromText(longitudeText);
+        var latitude = pastedPair ? pastedPair.latitude : numberOrNull(latitudeText);
+        var longitude = pastedPair ? pastedPair.longitude : numberOrNull(longitudeText);
+
+        if (!validLatitudeLongitude(latitude, longitude)) {
+            var decoded = decodedMgrsCoordinate(mgrsText);
+            if (decoded) {
+                latitude = decoded.latitude;
+                longitude = decoded.longitude;
+            }
+        }
+        if (!validLatitudeLongitude(latitude, longitude)) {
+            return false;
+        }
+
+        var digits = Number(config.coordinateDigits || 6);
+        var lngLat = { lng: longitude, lat: latitude };
+        var formatted = formatCoordinate(lngLat);
+        incidentDraft = {
+            longitude: Number(longitude.toFixed(digits)),
+            latitude: Number(latitude.toFixed(digits)),
+            mgrsCoord: formatted.mgrs === 'Unavailable' ? mgrsText : formatted.mgrs
+        };
+        setIncidentFormValue('longitude', incidentDraft.longitude);
+        setIncidentFormValue('latitude', incidentDraft.latitude);
+        setIncidentFormValue('mgrsCoord', incidentDraft.mgrsCoord);
+        updateIncidentSource(incidentDraftSourceId, [incidentFeatureFromDraft(incidentDraft)]);
+        return true;
     }
 
     function setIncidentCreateMode(enabled) {
@@ -2727,6 +2873,21 @@
     function addLocalCreatedIncident(feature) {
         localIncidentFeatures.push(normalizeCreatedIncidentFeature(feature));
         updateIncidentSource(localIncidentSourceId, localIncidentFeatures);
+        moveLocalIncidentLayerToFront();
+        updateCurrentIncidentsStatus();
+    }
+
+    function focusIncidentFeature(feature) {
+        var coordinates = feature && feature.geometry ? feature.geometry.coordinates : null;
+        if (!coordinates || coordinates.length < 2) {
+            return;
+        }
+        map.easeTo({
+            center: coordinates,
+            zoom: Math.max(map.getZoom(), 16),
+            duration: 550,
+            essential: true
+        });
     }
 
     function ensureCurrentIncidentsLayerRefresh() {
@@ -2744,8 +2905,11 @@
     }
 
     function saveIncidentDraft() {
-        if (!incidentDraft || !incidentCreateForm) {
-            setStatus('Place an incident on the map before saving.', true);
+        if (!incidentCreateForm) {
+            return;
+        }
+        if (!syncIncidentDraftFromCoordinateInputs()) {
+            setStatus('Enter a valid latitude/longitude or MGRS coordinate before saving.', true);
             return;
         }
         if (!incidentCreateForm.checkValidity()) {
@@ -2774,6 +2938,7 @@
             });
         }).then(function (body) {
             addLocalCreatedIncident(body.feature);
+            focusIncidentFeature(body.feature);
             clearIncidentDraft();
             setIncidentPanelOpen(false);
             setStatus('Incident ' + body.incident.incidentId + ' created.');
@@ -2838,6 +3003,33 @@
             return count + ' of ' + total + ' features';
         }
         return count + ' feature' + (count === 1 ? '' : 's');
+    }
+
+    function currentIncidentsStatusText(data, rawData) {
+        var baseCount = data && data.features ? data.features.length : 0;
+        var localCount = localIncidentFeatures.length;
+        if (!localCount) {
+            return layerFeatureStatus(data, rawData);
+        }
+        var total = baseCount + localCount;
+        return total + ' feature' + (total === 1 ? '' : 's') +
+            ' (' + baseCount + ' WFS + ' + localCount + ' local)';
+    }
+
+    function internalLayerStatusText(key, data, rawData) {
+        return key === 'currentIncidents'
+            ? currentIncidentsStatusText(data, rawData)
+            : layerFeatureStatus(data, rawData);
+    }
+
+    function updateCurrentIncidentsStatus() {
+        var state = internalLayerState.currentIncidents || {};
+        if (state.loaded && state.data) {
+            updateLayerStatus('currentIncidents', 'internal', currentIncidentsStatusText(state.data, state.rawData));
+        } else if (localIncidentFeatures.length) {
+            updateLayerStatus('currentIncidents', 'internal',
+                localIncidentFeatures.length + ' local feature' + (localIncidentFeatures.length === 1 ? '' : 's'));
+        }
     }
 
     function normalizeLayerFilterOption(option) {
@@ -2941,7 +3133,7 @@
         if (source && source.setData) {
             source.setData(data);
         }
-        updateLayerStatus(key, 'internal', layerFeatureStatus(data, state.rawData));
+        updateLayerStatus(key, 'internal', internalLayerStatusText(key, data, state.rawData));
     }
 
     function reloadInternalLayerForFilter(key) {
@@ -3064,7 +3256,8 @@
             }, 0);
         }
         if (key === 'currentIncidents') {
-            clearLocalCreatedIncidents();
+            pruneLocalCreatedIncidents(rawData);
+            moveLocalIncidentLayerToFront();
         }
     }
 
@@ -3103,7 +3296,7 @@
                 }
                 addInternalLayer(key, geojson);
                 var state = internalLayerState[key] || {};
-                var statusText = layerFeatureStatus(state.data, state.rawData);
+                var statusText = internalLayerStatusText(key, state.data, state.rawData);
                 updateLayerStatus(key, 'internal', statusText);
                 setStatus(layer.title + ': ' + statusText + ' loaded.');
             })
@@ -3991,6 +4184,16 @@
         incidentCreateForm.addEventListener('submit', function (event) {
             event.preventDefault();
             saveIncidentDraft();
+        });
+        ['latitude', 'longitude', 'mgrsCoord'].forEach(function (name) {
+            var input = incidentCreateForm.elements[name];
+            if (!input) {
+                return;
+            }
+            input.addEventListener('change', syncIncidentDraftFromCoordinateInputs);
+            input.addEventListener('paste', function () {
+                window.setTimeout(syncIncidentDraftFromCoordinateInputs, 0);
+            });
         });
     }
     if (geoAiToggle) {

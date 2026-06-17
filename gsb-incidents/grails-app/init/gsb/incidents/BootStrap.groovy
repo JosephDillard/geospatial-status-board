@@ -33,18 +33,40 @@ class BootStrap {
         ])
         seedLookupCategory('incident.eventType', [
             'Airfield Damage',
+            'Airfield Closure',
+            'Aircraft Mishap',
+            'ATC/NAVAID Outage',
+            'C2/Communications Outage',
+            'Cyber Incident',
             'Facility Damage',
-            'Utility Outage',
+            'Fire/Smoke',
+            'Fuel/POL Issue',
+            'Hazardous Material',
+            'Medical Emergency',
+            'Road/Access Issue',
             'Security',
-            'Weather',
-            'Aircraft Mishap'
+            'Severe Weather',
+            'Utility Outage',
+            'UXO/Suspicious Object',
+            'Wildlife Hazard'
         ])
         seedLookupCategory('incident.eventCategory', [
+            'Air Operations',
+            'Communications',
+            'Cyber',
+            'Emergency Response',
+            'Environmental',
+            'Force Protection',
+            'Logistics',
+            'Medical',
+            'Mission Support',
             'Operational',
             'Infrastructure',
             'Safety',
-            'Weather',
-            'Security'
+            'Security',
+            'Transportation',
+            'Utilities',
+            'Weather'
         ])
         seedLookupCategory('incident.source', [
             'Operations Center',
@@ -79,7 +101,7 @@ class BootStrap {
                         option.active = true
                         changed = true
                     }
-                    if (option.sortOrder == null || option.sortOrder == 0) {
+                    if (option.sortOrder != index + 1) {
                         option.sortOrder = index + 1
                         changed = true
                     }
