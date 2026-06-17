@@ -435,6 +435,9 @@
     var placeSearchResults = [];
     var activePlaceSearchResultIndex = null;
     var activePlaceSearchPopup = null;
+    var lastPlaceSearchLngLat = null;
+    var lastPlaceSearchPayload = null;
+    var placeSearchRequestSeq = 0;
     var incidentDraft = null;
     var coordinateMapSearch = document.getElementById('geo-coordinate-map-search');
     var copiedMgrsSearchUrl = '';
@@ -1910,6 +1913,52 @@
         }
     }
 
+    function closePlaceSearchPopup() {
+        removeActivePlaceSearchPopup();
+        activePlaceSearchResultIndex = null;
+        updatePlaceSearchResultSource();
+    }
+
+    function normalizedSearchLngLat(lngLat) {
+        if (!lngLat) {
+            return null;
+        }
+        return {
+            lng: Number(lngLat.lng),
+            lat: Number(lngLat.lat)
+        };
+    }
+
+    function createPlaceSearchPopup(lngLat, html) {
+        removeActivePlaceSearchPopup();
+        var popup = new maplibregl.Popup({
+            className: 'geo-map-feature-popup geo-place-search-popup',
+            maxWidth: '390px'
+        })
+            .setLngLat(lngLat)
+            .setHTML(html)
+            .addTo(map);
+        activePlaceSearchPopup = popup;
+        popup.on('close', function () {
+            if (activePlaceSearchPopup === popup) {
+                activePlaceSearchPopup = null;
+            }
+        });
+        return popup;
+    }
+
+    function restorePlaceSearchPopup() {
+        if (!lastPlaceSearchLngLat || !lastPlaceSearchPayload) {
+            return false;
+        }
+        var popup = createPlaceSearchPopup(
+            lastPlaceSearchLngLat,
+            placeSearchPopupHtml(lastPlaceSearchPayload, lastPlaceSearchLngLat)
+        );
+        bindPlaceSearchPopupInteractions(popup);
+        return true;
+    }
+
     function setPlaceSearchResults(results) {
         placeSearchResults = (results || []).slice(0, placeSearchLimit());
         activePlaceSearchResultIndex = null;
@@ -1917,8 +1966,11 @@
     }
 
     function clearPlaceSearchResults(silent) {
+        placeSearchRequestSeq += 1;
         placeSearchResults = [];
         activePlaceSearchResultIndex = null;
+        lastPlaceSearchLngLat = null;
+        lastPlaceSearchPayload = null;
         updatePlaceSearchResultSource();
         removeActivePlaceSearchPopup();
         if (!silent) {
@@ -2020,38 +2072,60 @@
             setIncidentCreateMode(false);
             setGeoAiPanelOpen(false);
             map.getCanvas().style.cursor = 'help';
-            setStatus('Wikipedia search ready. Click a map location to show nearby places.');
+            if (placeSearchResults.length && restorePlaceSearchPopup()) {
+                setStatus('Wikipedia results shown. Click a map location to search again.');
+            } else {
+                setStatus('Wikipedia search ready. Click a map location to show nearby places.');
+            }
         } else if (map) {
+            placeSearchRequestSeq += 1;
+            closePlaceSearchPopup();
             map.getCanvas().style.cursor = '';
+            if (placeSearchResults.length) {
+                setStatus('Wikipedia search paused. Results remain until cleared.');
+            }
         }
     }
 
     function showPlaceSearchPopup(lngLat) {
         clearPlaceSearchResults(true);
-        var popup = new maplibregl.Popup({
-            className: 'geo-map-feature-popup geo-place-search-popup',
-            maxWidth: '390px'
-        })
-            .setLngLat(lngLat)
-            .setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">Searching...</p>')
-            .addTo(map);
-        activePlaceSearchPopup = popup;
-        popup.on('close', function () {
-            if (activePlaceSearchPopup === popup) {
-                activePlaceSearchPopup = null;
-            }
-        });
+        var searchLngLat = normalizedSearchLngLat(lngLat);
+        var requestId = ++placeSearchRequestSeq;
+        lastPlaceSearchLngLat = searchLngLat;
+        lastPlaceSearchPayload = null;
+        var popup = createPlaceSearchPopup(
+            searchLngLat,
+            '<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">Searching...</p>'
+        );
 
-        fetchPlaceResults(lngLat)
+        fetchPlaceResults(searchLngLat)
             .then(function (payload) {
+                if (requestId !== placeSearchRequestSeq) {
+                    return;
+                }
+                lastPlaceSearchPayload = {
+                    source: payload.source || 'Wikipedia',
+                    results: (payload.results || []).slice(0, placeSearchLimit())
+                };
                 setPlaceSearchResults(payload.results || []);
-                popup.setHTML(placeSearchPopupHtml(payload, lngLat));
-                bindPlaceSearchPopupInteractions(popup);
+                if (activePlaceSearchPopup === popup) {
+                    popup.setHTML(placeSearchPopupHtml(lastPlaceSearchPayload, searchLngLat));
+                    bindPlaceSearchPopupInteractions(popup);
+                }
                 setStatus('Nearby place search complete.');
             })
             .catch(function (error) {
+                if (requestId !== placeSearchRequestSeq) {
+                    return;
+                }
+                lastPlaceSearchPayload = {
+                    source: 'Wikipedia',
+                    results: []
+                };
                 setPlaceSearchResults([]);
-                popup.setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">' + escapeHtml(error.message || 'Search failed') + '</p>');
+                if (activePlaceSearchPopup === popup) {
+                    popup.setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">' + escapeHtml(error.message || 'Search failed') + '</p>');
+                }
                 setStatus('Nearby place search failed: ' + (error.message || 'Search failed'), true);
             });
     }
