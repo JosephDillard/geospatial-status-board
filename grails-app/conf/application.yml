@@ -106,8 +106,8 @@ geo:
         eventName: "${GEOSPATIAL_GATEWAY_LAYER_REFRESH_EVENT:layer.refresh_requested}"
     viewer:
         provider: maplibre
-        mapLibreJsUrl: https://unpkg.com/maplibre-gl/dist/maplibre-gl.js
-        mapLibreCssUrl: https://unpkg.com/maplibre-gl/dist/maplibre-gl.css
+        mapLibreJsUrl: https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js
+        mapLibreCssUrl: https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css
         mapDrawJsUrl: https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.js
         mapDrawCssUrl: https://unpkg.com/@mapbox/mapbox-gl-draw@1.5.0/dist/mapbox-gl-draw.css
         mgrsJsUrl: https://cdn.jsdelivr.net/npm/mgrs@1.0.0/dist/mgrs.min.js
