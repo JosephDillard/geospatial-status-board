@@ -243,13 +243,13 @@
                 <input id="geo-coordinate-click-copy" type="checkbox" aria-label="Copy selected coordinate when clicking the map"/>
             </label>
             <output id="geo-coordinate-output">Move over map</output>
-            <button id="geo-coordinate-map-search"
+            <button id="geo-coordinate-marker-clear"
                     type="button"
-                    class="geo-coordinate-map-search"
-                    aria-label="Search copied MGRS coordinate in Google Maps"
-                    title="Search copied MGRS coordinate in Google Maps"
+                    class="geo-coordinate-marker-clear"
+                    aria-label="Clear selected coordinate marker"
+                    title="Clear selected coordinate marker"
                     hidden>
-                Maps
+                <span class="geo-coordinate-marker-glyph" aria-hidden="true"></span>
             </button>
         </div>
         <aside id="geo-incident-create-panel" class="geo-incident-create-panel" aria-label="Create incident" hidden>
@@ -329,6 +329,9 @@
             <datalist id="geo-incident-source-options"></datalist>
         </aside>
         <div id="geo-map" class="geo-map-canvas"></div>
+        <aside id="geo-mini-map" class="geo-mini-map" aria-label="Overview map" hidden>
+            <div id="geo-mini-map-canvas" class="geo-mini-map-canvas"></div>
+        </aside>
     </section>
 </main>
 
@@ -373,6 +376,9 @@
     var coordinateOutput = document.getElementById('geo-coordinate-output');
     var coordinateFormat = document.getElementById('geo-coordinate-format');
     var coordinateClickCopy = document.getElementById('geo-coordinate-click-copy');
+    var coordinateMarkerClear = document.getElementById('geo-coordinate-marker-clear');
+    var miniMapPanel = document.getElementById('geo-mini-map');
+    var miniMapCanvas = document.getElementById('geo-mini-map-canvas');
     var zoomInButton = document.getElementById('geo-zoom-in');
     var zoomOutButton = document.getElementById('geo-zoom-out');
     var zoomLevelSelect = document.getElementById('geo-zoom-level');
@@ -440,8 +446,15 @@
     var lastPlaceSearchPayload = null;
     var placeSearchRequestSeq = 0;
     var incidentDraft = null;
-    var coordinateMapSearch = document.getElementById('geo-coordinate-map-search');
-    var copiedMgrsSearchUrl = '';
+    var coordinateMarkers = [];
+    var coordinateMarkerSequence = 0;
+    var activeCoordinateMarkerId = '';
+    var miniMap = null;
+    var miniMapViewSourceId = 'mini-map-current-view';
+    var miniMapViewLayerId = 'mini-map-current-view-outline';
+    var syncingMiniMap = false;
+    var miniMapDraggingView = false;
+    var miniMapHoldOverview = false;
     var localIncidentFeatures = [];
     var hoverCoordinate = null;
     var draw = null;
@@ -1157,18 +1170,101 @@
             });
     }
 
+    function sameCoordinatePair(first, second) {
+        return Array.isArray(first) &&
+            Array.isArray(second) &&
+            Number(first[0]) === Number(second[0]) &&
+            Number(first[1]) === Number(second[1]);
+    }
+
+    function normalizedLinearRing(ring) {
+        if (!Array.isArray(ring)) {
+            return null;
+        }
+        var normalized = ring.filter(function (point) {
+            return Array.isArray(point) &&
+                Number.isFinite(Number(point[0])) &&
+                Number.isFinite(Number(point[1]));
+        }).map(function (point) {
+            return [Number(point[0]), Number(point[1])];
+        });
+        if (normalized.length < 3) {
+            return null;
+        }
+        if (!sameCoordinatePair(normalized[0], normalized[normalized.length - 1])) {
+            normalized.push([normalized[0][0], normalized[0][1]]);
+        }
+        return normalized.length >= 4 ? normalized : null;
+    }
+
+    function normalizedPolygonCoordinates(coordinates) {
+        if (!Array.isArray(coordinates)) {
+            return null;
+        }
+        var rings = coordinates.map(normalizedLinearRing).filter(function (ring) {
+            return !!ring;
+        });
+        return rings.length ? rings : null;
+    }
+
+    function normalizedDrawnPolygonFeature(feature) {
+        var geometry = feature && feature.geometry;
+        if (!geometry) {
+            return null;
+        }
+        if (geometry.type === 'Polygon') {
+            var polygon = normalizedPolygonCoordinates(geometry.coordinates);
+            return polygon ? {
+                type: 'Feature',
+                id: feature.id,
+                properties: Object.assign({}, feature.properties || {}),
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: polygon
+                }
+            } : null;
+        }
+        if (geometry.type === 'MultiPolygon') {
+            var polygons = (geometry.coordinates || []).map(normalizedPolygonCoordinates).filter(function (polygon) {
+                return !!polygon;
+            });
+            return polygons.length ? {
+                type: 'Feature',
+                id: feature.id,
+                properties: Object.assign({}, feature.properties || {}),
+                geometry: {
+                    type: 'MultiPolygon',
+                    coordinates: polygons
+                }
+            } : null;
+        }
+        return null;
+    }
+
+    function collectDrawnFeatures(collection, byKey) {
+        ((collection || {}).features || []).forEach(function (feature, index) {
+            var normalized = normalizedDrawnPolygonFeature(feature);
+            if (!normalized) {
+                return;
+            }
+            var key = normalized.id || JSON.stringify(normalized.geometry) || String(index);
+            byKey[key] = normalized;
+        });
+    }
+
     function drawnGeoJson() {
         if (!draw || typeof draw.getAll !== 'function') {
             return null;
         }
         try {
-            var featureCollection = draw.getAll();
-            var features = featureCollection && featureCollection.features
-                ? featureCollection.features.filter(function (feature) {
-                    var type = feature && feature.geometry && feature.geometry.type;
-                    return type === 'Polygon' || type === 'MultiPolygon';
-                })
-                : [];
+            var byKey = {};
+            collectDrawnFeatures(draw.getAll(), byKey);
+            if (typeof draw.getSelected === 'function') {
+                collectDrawnFeatures(draw.getSelected(), byKey);
+            }
+            var features = Object.keys(byKey).map(function (key) {
+                return byKey[key];
+            });
             return features.length
                 ? { type: 'FeatureCollection', features: features }
                 : null;
@@ -1379,13 +1475,16 @@
             return;
         }
 
+        var context = geoAiMapContext();
         var payload = {
             request_source: 'external_app',
             submitted_by: 'geospatial-status-board',
             model_id: geoAiModel.value,
             workflow_ids: [geoAiWorkflow.value],
-            map_context: geoAiMapContext(),
-            notes: 'Submitted from Map View'
+            map_context: context,
+            notes: context.area_source === 'drawn_aoi'
+                ? 'Submitted from Map View using drawn AOI'
+                : 'Submitted from Map View using current map view'
         };
 
         geoAiRunActive = true;
@@ -1615,6 +1714,179 @@
             }, firstOperationalLayerId());
         }
         updateBasemapCards();
+        updateMiniMapBasemap();
+    }
+
+    function miniMapZoomLevel() {
+        if (!map) {
+            return Math.max(0, Number(config.zoom || 6) - 6);
+        }
+        return Math.max(0, Number(map.getZoom() || 0) - 6);
+    }
+
+    function mapBoundsFeature() {
+        var bounds = map.getBounds();
+        var west = bounds.getWest();
+        var south = bounds.getSouth();
+        var east = bounds.getEast();
+        var north = bounds.getNorth();
+        return {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                    [west, south],
+                    [east, south],
+                    [east, north],
+                    [west, north],
+                    [west, south]
+                ]]
+            }
+        };
+    }
+
+    function ensureMiniMapViewLayer() {
+        if (!miniMap || !miniMap.isStyleLoaded()) {
+            return;
+        }
+        if (!miniMap.getSource(miniMapViewSourceId)) {
+            miniMap.addSource(miniMapViewSourceId, {
+                type: 'geojson',
+                data: mapBoundsFeature()
+            });
+        }
+        if (!miniMap.getLayer(miniMapViewLayerId)) {
+            miniMap.addLayer({
+                id: miniMapViewLayerId,
+                type: 'line',
+                source: miniMapViewSourceId,
+                paint: {
+                    'line-color': '#ef4444',
+                    'line-width': 3,
+                    'line-opacity': 0.95
+                }
+            });
+        }
+    }
+
+    function updateMiniMapViewBox() {
+        if (!miniMap || !miniMap.isStyleLoaded()) {
+            return;
+        }
+        ensureMiniMapViewLayer();
+        var source = miniMap.getSource(miniMapViewSourceId);
+        if (source) {
+            source.setData(mapBoundsFeature());
+        }
+    }
+
+    function centerMiniMapOnMain() {
+        if (!miniMap || syncingMiniMap) {
+            return;
+        }
+        syncingMiniMap = true;
+        miniMap.jumpTo({
+            center: map.getCenter(),
+            zoom: miniMapZoomLevel(),
+            bearing: 0,
+            pitch: 0
+        });
+        syncingMiniMap = false;
+        updateMiniMapViewBox();
+    }
+
+    function refreshMiniMapFromMain(recenter) {
+        if (!miniMap) {
+            return;
+        }
+        if (recenter) {
+            centerMiniMapOnMain();
+        } else {
+            updateMiniMapViewBox();
+        }
+    }
+
+    function updateMiniMapBasemap() {
+        if (!miniMap) {
+            return;
+        }
+        miniMap.once('style.load', function () {
+            ensureMiniMapViewLayer();
+            refreshMiniMapFromMain(true);
+        });
+        miniMap.setStyle(rasterStyle());
+    }
+
+    function moveMainToMiniMapPoint(lngLat, immediate) {
+        if (!lngLat) {
+            return;
+        }
+        map[immediate ? 'jumpTo' : 'easeTo']({
+            center: [lngLat.lng, lngLat.lat],
+            duration: immediate ? 0 : 300
+        });
+        updateMiniMapViewBox();
+    }
+
+    function releaseMiniMapDrag() {
+        if (!miniMapDraggingView) {
+            return;
+        }
+        miniMapDraggingView = false;
+        window.setTimeout(function () {
+            miniMapHoldOverview = false;
+            updateMiniMapViewBox();
+        }, 650);
+    }
+
+    function initMiniMap() {
+        if (!miniMapPanel || !miniMapCanvas || miniMap) {
+            return;
+        }
+        miniMapPanel.hidden = false;
+        miniMap = new maplibregl.Map({
+            container: 'geo-mini-map-canvas',
+            style: rasterStyle(),
+            center: config.center || [-106.0, 34.5],
+            zoom: Math.max(0, Number(config.zoom || 6) - 6),
+            attributionControl: false,
+            interactive: true
+        });
+        miniMap.scrollZoom.disable();
+        miniMap.boxZoom.disable();
+        miniMap.dragRotate.disable();
+        miniMap.keyboard.disable();
+        miniMap.doubleClickZoom.disable();
+        miniMap.dragPan.disable();
+        if (miniMap.touchZoomRotate && typeof miniMap.touchZoomRotate.disableRotation === 'function') {
+            miniMap.touchZoomRotate.disableRotation();
+        }
+        miniMap.on('load', function () {
+            ensureMiniMapViewLayer();
+            refreshMiniMapFromMain(true);
+        });
+        miniMap.on('mousedown', function (event) {
+            miniMapDraggingView = true;
+            miniMapHoldOverview = true;
+            moveMainToMiniMapPoint(event.lngLat, true);
+        });
+        miniMap.on('mousemove', function (event) {
+            if (miniMapDraggingView) {
+                moveMainToMiniMapPoint(event.lngLat, true);
+            }
+        });
+        miniMap.on('mouseup', releaseMiniMapDrag);
+        miniMap.on('click', function (event) {
+            if (!miniMapDraggingView) {
+                miniMapHoldOverview = true;
+                moveMainToMiniMapPoint(event.lngLat, false);
+                window.setTimeout(function () {
+                    miniMapHoldOverview = false;
+                }, 650);
+            }
+        });
+        miniMap.getCanvas().addEventListener('mouseleave', releaseMiniMapDrag);
     }
 
     function updateMapFormState() {
@@ -2428,20 +2700,6 @@
             encodeURIComponent(lngLat.lat.toFixed(digits) + ',' + lngLat.lng.toFixed(digits));
     }
 
-    function hideCoordinateMapSearch() {
-        copiedMgrsSearchUrl = '';
-        if (coordinateMapSearch) {
-            coordinateMapSearch.hidden = true;
-        }
-    }
-
-    function showCoordinateMapSearch(lngLat) {
-        copiedMgrsSearchUrl = googleMapsSearchUrl(lngLat);
-        if (coordinateMapSearch) {
-            coordinateMapSearch.hidden = false;
-        }
-    }
-
     function flashCoordinateCopied() {
         coordinatePanel.classList.add('is-copied');
         window.setTimeout(function () {
@@ -2449,25 +2707,221 @@
         }, 850);
     }
 
-    function copyCoordinateAt(lngLat) {
-        var selectedFormat = coordinateFormat.value;
-        var value = formatCoordinate(lngLat)[selectedFormat] || '';
-        if (!value) {
-            hideCoordinateMapSearch();
+    function coordinateMarkerById(id) {
+        return coordinateMarkers.find(function (record) {
+            return record.id === id;
+        }) || null;
+    }
+
+    function activeCoordinateMarker() {
+        return coordinateMarkerById(activeCoordinateMarkerId);
+    }
+
+    function coordinateMarkerValue(record, format) {
+        return (record && record.formats ? record.formats[format || coordinateFormat.value] : '') || '';
+    }
+
+    function coordinateMarkerLngLat(record) {
+        return [record.lngLat.lng, record.lngLat.lat];
+    }
+
+    function coordinateMarkerTimestamp(record) {
+        var date = record.createdAt instanceof Date ? record.createdAt : new Date(record.createdAt);
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+        return date.toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    function copyTextToClipboard(value) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            setStatus('Clipboard is not available for this browser session.', true);
+            return Promise.reject(new Error('Clipboard unavailable'));
+        }
+        return navigator.clipboard.writeText(value);
+    }
+
+    function updateCoordinateMarkerReadout(record) {
+        var value = coordinateMarkerValue(record, coordinateFormat.value);
+        if (value) {
+            coordinateOutput.textContent = value;
+            hoverCoordinate = record.lngLat;
+        }
+    }
+
+    function updateCoordinateMarkerClearButton() {
+        if (!coordinateMarkerClear) {
             return;
         }
-        coordinateOutput.textContent = value;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(value).then(function () {
-                flashCoordinateCopied();
-                if (selectedFormat === 'mgrs' && value !== 'Unavailable') {
-                    showCoordinateMapSearch(lngLat);
-                } else {
-                    hideCoordinateMapSearch();
-                }
-            }).catch(function () {
-                setStatus('Clipboard is not available for this browser session.', true);
-            });
+        coordinateMarkerClear.hidden = !activeCoordinateMarker();
+    }
+
+    function setActiveCoordinateMarker(record) {
+        activeCoordinateMarkerId = record ? record.id : '';
+        coordinateMarkers.forEach(function (entry) {
+            if (entry.element) {
+                entry.element.classList.toggle('is-active', !!record && entry.id === record.id);
+            }
+        });
+        updateCoordinateMarkerClearButton();
+        if (record) {
+            updateCoordinateMarkerReadout(record);
+        }
+    }
+
+    function coordinateMarkerPopupHtml(record) {
+        return '<div class="geo-coordinate-marker-popup-content" data-coordinate-marker-id="' + escapeHtml(record.id) + '">' +
+            '<div class="geo-map-popup-title">Coordinate Marker</div>' +
+            '<dl class="geo-map-popup geo-coordinate-marker-details">' +
+            '<dt>MGRS</dt><dd>' + escapeHtml(record.formats.mgrs) + '</dd>' +
+            '<dt>Lat/Lon</dt><dd>' + escapeHtml(record.formats.latLon) + '</dd>' +
+            '<dt>DMS</dt><dd>' + escapeHtml(record.formats.dms) + '</dd>' +
+            '<dt>Time</dt><dd>' + escapeHtml(coordinateMarkerTimestamp(record)) + '</dd>' +
+            '</dl>' +
+            '<div class="geo-coordinate-marker-popup-actions">' +
+            '<button type="button" data-coordinate-marker-action="copy" data-coordinate-marker-id="' + escapeHtml(record.id) + '">Copy</button>' +
+            '<button type="button" data-coordinate-marker-action="maps" data-coordinate-marker-id="' + escapeHtml(record.id) + '">Maps</button>' +
+            '<button type="button" data-coordinate-marker-action="clear" data-coordinate-marker-id="' + escapeHtml(record.id) + '">Clear</button>' +
+            '</div>' +
+            '</div>';
+    }
+
+    function openCoordinateMarkerPopup(record) {
+        if (!record) {
+            return;
+        }
+        if (record.popup) {
+            record.popup.remove();
+        }
+        record.popup = new maplibregl.Popup({
+            className: 'geo-map-feature-popup geo-coordinate-marker-popup',
+            maxWidth: '360px'
+        })
+            .setLngLat(coordinateMarkerLngLat(record))
+            .setHTML(coordinateMarkerPopupHtml(record))
+            .addTo(map);
+        record.popup.on('close', function () {
+            if (record.popup) {
+                record.popup = null;
+            }
+        });
+    }
+
+    function copyCoordinateMarker(record) {
+        var value = coordinateMarkerValue(record, coordinateFormat.value);
+        if (!value || value === 'Unavailable') {
+            setStatus('Selected coordinate format is unavailable at this point.', true);
+            return;
+        }
+        updateCoordinateMarkerReadout(record);
+        copyTextToClipboard(value)
+            .then(flashCoordinateCopied)
+            .catch(function () {});
+    }
+
+    function selectCoordinateMarker(record, options) {
+        if (!record) {
+            return;
+        }
+        setActiveCoordinateMarker(record);
+        if (options && options.copy) {
+            copyCoordinateMarker(record);
+        }
+        if (options && options.popup) {
+            openCoordinateMarkerPopup(record);
+        }
+    }
+
+    function createCoordinateMarkerElement(record) {
+        var element = document.createElement('button');
+        element.type = 'button';
+        element.className = 'geo-coordinate-marker';
+        element.title = 'Coordinate marker';
+        element.setAttribute('aria-label', 'Coordinate marker');
+        element.innerHTML = '<span class="geo-coordinate-marker-glyph" aria-hidden="true"></span>';
+        element.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            selectCoordinateMarker(record, { copy: true, popup: true });
+        });
+        return element;
+    }
+
+    function addCoordinateMarker(lngLat) {
+        var record = {
+            id: 'coordinate-marker-' + (++coordinateMarkerSequence),
+            lngLat: {
+                lng: Number(lngLat.lng),
+                lat: Number(lngLat.lat)
+            },
+            createdAt: new Date(),
+            formats: formatCoordinate(lngLat),
+            marker: null,
+            popup: null,
+            element: null
+        };
+        record.element = createCoordinateMarkerElement(record);
+        record.marker = new maplibregl.Marker({
+            element: record.element,
+            anchor: 'bottom'
+        })
+            .setLngLat(coordinateMarkerLngLat(record))
+            .addTo(map);
+        coordinateMarkers.push(record);
+        setActiveCoordinateMarker(record);
+        return record;
+    }
+
+    function removeCoordinateMarker(id) {
+        var record = coordinateMarkerById(id);
+        if (!record) {
+            return;
+        }
+        if (record.popup) {
+            record.popup.remove();
+        }
+        if (record.marker) {
+            record.marker.remove();
+        }
+        coordinateMarkers = coordinateMarkers.filter(function (entry) {
+            return entry.id !== id;
+        });
+        if (activeCoordinateMarkerId === id) {
+            activeCoordinateMarkerId = '';
+            updateCoordinateMarkerClearButton();
+        }
+    }
+
+    function copyCoordinateAt(lngLat) {
+        var record = addCoordinateMarker(lngLat);
+        copyCoordinateMarker(record);
+    }
+
+    function handleCoordinateMarkerPopupClick(event) {
+        var button = event.target.closest ? event.target.closest('[data-coordinate-marker-action]') : null;
+        if (!button) {
+            return;
+        }
+        var record = coordinateMarkerById(button.getAttribute('data-coordinate-marker-id'));
+        if (!record) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setActiveCoordinateMarker(record);
+        var action = button.getAttribute('data-coordinate-marker-action');
+        if (action === 'copy') {
+            copyCoordinateMarker(record);
+        } else if (action === 'maps') {
+            window.open(googleMapsSearchUrl(record.lngLat), '_blank', 'noopener');
+        } else if (action === 'clear') {
+            removeCoordinateMarker(record.id);
         }
     }
 
@@ -2477,6 +2931,7 @@
         }
         coordinateClickCopy.checked = enabled;
         coordinatePanel.classList.toggle('is-copy-enabled', enabled);
+        updateCoordinateMarkerClearButton();
     }
 
     function populateIncidentDatalist(id, values) {
@@ -4071,8 +4526,13 @@
     map.on('zoomend', updateZoomLevelControl);
     map.on('zoomend', updateGeoAiExtent);
     map.on('moveend', updateGeoAiExtent);
+    map.on('move', updateMiniMapViewBox);
+    map.on('moveend', function () {
+        refreshMiniMapFromMain(!miniMapHoldOverview);
+    });
     map.on('rotate', updateNorthArrow);
     map.on('rotateend', updateNorthArrow);
+    map.getContainer().addEventListener('click', handleCoordinateMarkerPopupClick);
 
     appendLayerRows(internalLayerList, config.layers || {}, 'internal');
     appendLayerRows(externalLayerList, config.externalLayers || {}, 'external');
@@ -4084,6 +4544,7 @@
         window.setTimeout(function () {
             map.resize();
         }, 0);
+        initMiniMap();
         ensureMeasureLayers();
         ensurePlaceSearchResultLayer();
         registerIncidentIcons();
@@ -4384,10 +4845,10 @@
     }
     if (coordinateFormat) {
         coordinateFormat.addEventListener('change', function () {
-            if (coordinateFormat.value !== 'mgrs') {
-                hideCoordinateMapSearch();
-            }
-            if (hoverCoordinate) {
+            var activeMarker = activeCoordinateMarker();
+            if (activeMarker) {
+                updateCoordinateMarkerReadout(activeMarker);
+            } else if (hoverCoordinate) {
                 updateCoordinateReadout(hoverCoordinate);
             }
         });
@@ -4397,16 +4858,20 @@
             setCoordinateCopyMode(coordinateClickCopy.checked);
         });
     }
-    if (coordinateMapSearch) {
-        coordinateMapSearch.addEventListener('click', function () {
-            if (!copiedMgrsSearchUrl) {
-                return;
+    if (coordinateMarkerClear) {
+        coordinateMarkerClear.addEventListener('click', function () {
+            var activeMarker = activeCoordinateMarker();
+            if (activeMarker) {
+                removeCoordinateMarker(activeMarker.id);
             }
-            window.open(copiedMgrsSearchUrl, '_blank', 'noopener');
         });
     }
     window.addEventListener('resize', function () {
         map.resize();
+        if (miniMap) {
+            miniMap.resize();
+            refreshMiniMapFromMain(true);
+        }
     });
 })();
 </script>

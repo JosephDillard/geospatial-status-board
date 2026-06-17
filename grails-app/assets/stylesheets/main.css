@@ -2108,30 +2108,145 @@ img.grails-logo {
     color: #031525;
 }
 
-.geo-coordinate-map-search {
+.geo-coordinate-marker-clear {
     background: rgba(15, 53, 96, 0.92);
     border: 1px solid rgba(147, 197, 253, 0.42);
     border-radius: 4px;
     color: #eef6ff;
     cursor: pointer;
     flex: 0 0 auto;
-    font-size: 0.66rem;
-    font-weight: 800;
     height: 28px;
-    padding: 0 0.32rem;
+    padding: 0;
+    width: 28px;
 }
 
-.geo-coordinate-map-search:hover,
-.geo-coordinate-map-search:focus {
+.geo-coordinate-marker-clear:hover,
+.geo-coordinate-marker-clear:focus {
     background: #38bdf8;
     border-color: #7dd3fc;
     color: #031525;
     outline: none;
 }
 
-.geo-coordinate-panel.is-copied .geo-coordinate-map-search {
+.geo-coordinate-panel.is-copied .geo-coordinate-marker-clear {
     background: rgba(3, 21, 37, 0.9);
     border-color: rgba(3, 21, 37, 0.35);
+}
+
+.geo-coordinate-marker {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    height: 36px;
+    padding: 0;
+    transform: translateY(-2px);
+    width: 30px;
+}
+
+.geo-coordinate-marker-glyph {
+    background: #38bdf8;
+    border: 2px solid #f8fbff;
+    border-radius: 50% 50% 50% 0;
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.32);
+    display: block;
+    height: 18px;
+    margin: 4px auto 0;
+    position: relative;
+    transform: rotate(-45deg);
+    width: 18px;
+}
+
+.geo-coordinate-marker-glyph::after {
+    background: #031525;
+    border-radius: 999px;
+    content: "";
+    height: 6px;
+    left: 4px;
+    position: absolute;
+    top: 4px;
+    width: 6px;
+}
+
+.geo-coordinate-marker.is-active .geo-coordinate-marker-glyph {
+    background: #facc15;
+    border-color: #fff7cc;
+}
+
+.geo-coordinate-marker-clear .geo-coordinate-marker-glyph {
+    height: 13px;
+    margin-top: 3px;
+    width: 13px;
+}
+
+.geo-coordinate-marker-clear .geo-coordinate-marker-glyph::after {
+    height: 4px;
+    left: 2.5px;
+    top: 2.5px;
+    width: 4px;
+}
+
+.geo-coordinate-marker-popup-content {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.geo-coordinate-marker-details dd {
+    overflow-wrap: anywhere;
+}
+
+.geo-coordinate-marker-popup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.geo-coordinate-marker-popup-actions button {
+    background: rgba(15, 53, 96, 0.92);
+    border: 1px solid rgba(147, 197, 253, 0.42);
+    border-radius: 4px;
+    color: #eef6ff;
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-weight: 800;
+    min-height: 30px;
+    padding: 0.25rem 0.55rem;
+}
+
+.geo-coordinate-marker-popup-actions button:hover,
+.geo-coordinate-marker-popup-actions button:focus {
+    background: #38bdf8;
+    border-color: #7dd3fc;
+    color: #031525;
+    outline: none;
+}
+
+.geo-mini-map {
+    background: rgba(11, 39, 73, 0.78);
+    border: 1px solid rgba(239, 68, 68, 0.72);
+    border-radius: 6px;
+    bottom: 118px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+    height: 160px;
+    overflow: hidden;
+    position: absolute;
+    right: 12px;
+    width: 220px;
+    z-index: 4;
+}
+
+.geo-mini-map[hidden] {
+    display: none;
+}
+
+.geo-mini-map-canvas {
+    cursor: move;
+    height: 100%;
+    width: 100%;
+}
+
+.geo-mini-map .maplibregl-ctrl-attrib,
+.geo-mini-map .mapboxgl-ctrl-attrib {
+    display: none;
 }
 
 .geo-draw-summary {
@@ -2450,6 +2565,13 @@ img.grails-logo {
 
     .geo-coordinate-panel output {
         max-width: calc(100vw - 224px);
+    }
+
+    .geo-mini-map {
+        bottom: 112px;
+        height: 112px;
+        right: 8px;
+        width: 152px;
     }
 
     .geo-map-shell .maplibregl-ctrl-bottom-left,
