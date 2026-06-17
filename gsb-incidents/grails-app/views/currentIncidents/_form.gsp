@@ -68,7 +68,7 @@
 
 <div class="fieldcontain ${hasErrors(bean: currentIncidents, field: 'airOpsAffected', 'error')} ">
 	<label for="airOpsAffected">
-		<g:message code="currentIncidents.airOpsAffected.label" default="Air Ops Affected" />
+		<g:message code="currentIncidents.airOpsAffected.label" default="Affects Operations" />
 	</label>
 	<incidentLookup:select name="airOpsAffected" category="incident.yesNoNa" value="${currentIncidents?.airOpsAffected}" valueMessagePrefix="currentIncidents.airOpsAffected" noSelection="['': '']"/>
 </div>

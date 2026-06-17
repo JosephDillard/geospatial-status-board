@@ -25,7 +25,7 @@
                 </button>
                 <a class="navbar-brand" href="${request.contextPath}/#">
                     <span class="gsb-logo-mark" aria-hidden="true">GSB</span>
-                    <gsb:bannerText slot="brandSubtitle" defaultText="Geospatial Status Board"/>
+                    <gsb:bannerText slot="brandSubtitle" defaultText="Emergency Management"/>
                 </a>
             </div>
             <div class="navbar-collapse collapse" aria-expanded="false" style="height: 0.8px;">

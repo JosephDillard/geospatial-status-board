@@ -2,14 +2,14 @@
 <html>
 <head>
     <meta name="layout" content="main"/>
-    <title>Geospatial Status Board Home</title>
+    <title>Emergency Management Home</title>
 </head>
 <body>
 <main class="geospatial-status-board-page" role="main">
     <section class="geospatial-status-board-hero">
         <div>
             <p class="geospatial-status-board-kicker">Signed in as ${username}</p>
-            <h1>Geospatial Status Board</h1>
+            <h1>Emergency Management</h1>
             <p class="geospatial-status-board-subtitle">Mission data, airfield posture, and incident tracking in one authenticated workspace.</p>
         </div>
         <div class="geospatial-status-board-session">
@@ -39,7 +39,7 @@
         <g:else>
             <div class="geospatial-status-board-empty-state">
                 <h3>No operational modules registered</h3>
-                <p>The authenticated shell is ready for Geospatial Status Board modules as they are added to this application.</p>
+                <p>The authenticated shell is ready for Emergency Management modules as they are added to this application.</p>
             </div>
         </g:else>
     </section>

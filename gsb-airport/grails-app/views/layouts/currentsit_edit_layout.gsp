@@ -20,7 +20,7 @@
 <div id="grailsLogo" role="banner">
     <a class="gsb-logo-link" href="${createLink(uri: '/')}">
         <span class="gsb-logo-mark" aria-hidden="true">GSB</span>
-        <span class="gsb-logo-title"><gsb:bannerText slot="brandSubtitle" defaultText="Geospatial Status Board"/></span>
+        <span class="gsb-logo-title"><gsb:bannerText slot="brandSubtitle" defaultText="Emergency Management"/></span>
     </a>
 </div>
 <gsb:quickLinks/>

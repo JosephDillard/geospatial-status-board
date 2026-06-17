@@ -51,9 +51,9 @@ This repo provides the Grails status-board application, MapLibre map viewer,
 GeoServer/PostGIS local stack, and geospatial architecture notes. The companion GeoAI
 repo provides the workflow API and asset-detection pipeline used by the map viewer.
 
-- [Geospatial Status Board repo](https://github.com/JosephDillard/geospatial-status-board)
-- [Geospatial Status Board README](https://github.com/JosephDillard/geospatial-status-board/blob/master/README.md)
-- [Geospatial Status Board Architecture](docs/geospatial-architecture.md)
+- [Emergency Management repo](https://github.com/JosephDillard/geospatial-status-board)
+- [Emergency Management README](https://github.com/JosephDillard/geospatial-status-board/blob/master/README.md)
+- [Emergency Management Architecture](docs/geospatial-architecture.md)
 - [GeoAI Asset Detection Platform repo](https://github.com/JosephDillard/geoai-asset-detection-platform)
 - [GeoAI Asset Detection Platform README](https://github.com/JosephDillard/geoai-asset-detection-platform/blob/main/README.md)
 

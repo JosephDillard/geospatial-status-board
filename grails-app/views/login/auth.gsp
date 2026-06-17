@@ -7,7 +7,7 @@
 <body>
 <main class="auth-page" role="main">
     <section class="auth-panel" aria-labelledby="login-title">
-        <p class="geospatial-status-board-kicker">Geospatial Status Board</p>
+        <p class="geospatial-status-board-kicker">Emergency Management</p>
         <h1 id="login-title">Sign in</h1>
 
         <g:if test="${params.logout}">

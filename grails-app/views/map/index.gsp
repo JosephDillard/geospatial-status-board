@@ -1676,6 +1676,13 @@
     }
 
     function popupLabel(key) {
+        var labels = {
+            air_ops_affected: 'Affects Operations',
+            airOpsAffected: 'Affects Operations'
+        };
+        if (labels[key]) {
+            return labels[key];
+        }
         return String(key || '')
             .replace(/_/g, ' ')
             .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -4146,17 +4153,24 @@
         });
     }
     if (measureToggle) {
-        measureToggle.addEventListener('click', function () {
-            setGeoAiPanelOpen(false);
-            setPlaceSearchMode(false);
-            setMeasureMode(!measureMode);
+        measureToggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var enabled = measureToggle.getAttribute('aria-pressed') !== 'true';
+            if (enabled) {
+                setGeoAiPanelOpen(false);
+                setPlaceSearchMode(false);
+            }
+            setMeasureMode(enabled);
         });
     }
     if (measureClear) {
         measureClear.addEventListener('click', clearMeasure);
     }
     if (incidentCreateToggle) {
-        incidentCreateToggle.addEventListener('click', function () {
+        incidentCreateToggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
             setGeoAiPanelOpen(false);
             setPlaceSearchMode(false);
             setIncidentPanelOpen(false);
@@ -4165,8 +4179,10 @@
         });
     }
     if (placeSearchToggle) {
-        placeSearchToggle.addEventListener('click', function () {
-            setPlaceSearchMode(!placeSearchMode);
+        placeSearchToggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            setPlaceSearchMode(placeSearchToggle.getAttribute('aria-pressed') !== 'true');
         });
     }
     if (placeSearchClear) {

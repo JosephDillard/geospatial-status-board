@@ -48,7 +48,7 @@
 
 			<th>Sig Event</th>
 
-			<th>Air Ops Affected</th>
+			<th>Affects Operations</th>
 
 			<th>Source</th>
 

@@ -45,7 +45,7 @@
 
         <g:sortableColumn property="sigEvent" title="${message(code: 'incident.sigEvent.label', default: 'Sig Event')}"/>
 
-        <g:sortableColumn property="airOpsAffected" title="${message(code: 'incident.airOpsAffected.label', default: 'Air Ops Affected')}"/>
+        <g:sortableColumn property="airOpsAffected" title="${message(code: 'incident.airOpsAffected.label', default: 'Affects Operations')}"/>
 
         <g:sortableColumn property="source" title="${message(code: 'incident.source.label', default: 'Source')}"/>
 
@@ -207,7 +207,7 @@
 
         %{--<g:if test="${currentIncidents?.airOpsAffected}">--}%
             %{--<li class="fieldcontain">--}%
-                %{--<span id="airOpsAffected-label" class="property-label"><g:message code="currentIncidents.airOpsAffected.label" default="Air Ops Affected" /></span>--}%
+                %{--<span id="airOpsAffected-label" class="property-label"><g:message code="currentIncidents.airOpsAffected.label" default="Affects Operations" /></span>--}%
 
                 %{--<span class="property-value" aria-labelledby="airOpsAffected-label"><g:fieldValue bean="${currentIncidents}" field="airOpsAffected"/></span>--}%
 

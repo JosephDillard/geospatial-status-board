@@ -10,7 +10,7 @@ class AppChromeTagLib {
     }
 
     def renderSecMess = { attrs ->
-        out << html(AppBannerText.textFor('securityMessage', attrs.defaultText?.toString() ?: 'Geospatial Status Board'))
+        out << html(AppBannerText.textFor('securityMessage', attrs.defaultText?.toString() ?: 'Emergency Management'))
     }
 
     def renderUseMess = { attrs ->

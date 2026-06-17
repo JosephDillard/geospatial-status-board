@@ -54,7 +54,7 @@
 
 			<g:sortableColumn property="sigEvent" title="${message(code: 'archiveIncidents.sigEvent.label', default: 'Sig Event')}"/>
 
-			<g:sortableColumn property="airOpsAffected" title="${message(code: 'archiveIncidents.airOpsAffected.label', default: 'Air Ops Affected')}"/>
+			<g:sortableColumn property="airOpsAffected" title="${message(code: 'archiveIncidents.airOpsAffected.label', default: 'Affects Operations')}"/>
 
 			<g:sortableColumn property="source" title="${message(code: 'archiveIncidents.source.label', default: 'Source')}"/>
 

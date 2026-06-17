@@ -16,9 +16,9 @@ the user-facing map, GeoServer layer configuration, and health indicators. The
 companion GeoAI repo owns the workflow API, COG processing, model inference, and
 PostGIS output loading used by that map.
 
-- [Geospatial Status Board repo](https://github.com/JosephDillard/geospatial-status-board)
-- [Geospatial Status Board README](../README.md)
-- [Geospatial Status Board Architecture](https://github.com/JosephDillard/geospatial-status-board/blob/master/docs/geospatial-architecture.md)
+- [Emergency Management repo](https://github.com/JosephDillard/geospatial-status-board)
+- [Emergency Management README](../README.md)
+- [Emergency Management Architecture](https://github.com/JosephDillard/geospatial-status-board/blob/master/docs/geospatial-architecture.md)
 - [GeoAI Asset Detection Platform repo](https://github.com/JosephDillard/geoai-asset-detection-platform)
 - [GeoAI Asset Detection Platform README](https://github.com/JosephDillard/geoai-asset-detection-platform/blob/main/README.md)
 

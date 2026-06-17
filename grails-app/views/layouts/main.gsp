@@ -4,7 +4,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <title>
-        <g:layoutTitle default="Geospatial Status Board"/>
+        <g:layoutTitle default="Emergency Management"/>
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <asset:link rel="icon" href="favicon.ico" type="image/x-ico"/>
@@ -18,7 +18,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark navbar-static-top" role="navigation">
     <div class="container-fluid">
-        <g:link class="navbar-brand geospatial-status-board-brand" uri="/"><gsb:bannerText slot="brandSubtitle" defaultText="Geospatial Status Board"/></g:link>
+        <g:link class="navbar-brand geospatial-status-board-brand" uri="/"><gsb:bannerText slot="brandSubtitle" defaultText="Emergency Management"/></g:link>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -100,7 +100,7 @@
 
 <footer class="geospatial-status-board-footer" role="contentinfo">
     <div class="container-fluid">
-        <span>Geospatial Status Board</span>
+        <span>Emergency Management</span>
     </div>
 </footer>
 

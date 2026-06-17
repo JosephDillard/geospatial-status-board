@@ -123,7 +123,7 @@
 			
 				<g:if test="${archiveIncidents?.airOpsAffected}">
 				<li class="fieldcontain">
-					<span id="airOpsAffected-label" class="property-label"><g:message code="archiveIncidents.airOpsAffected.label" default="Air Ops Affected" /></span>
+					<span id="airOpsAffected-label" class="property-label"><g:message code="archiveIncidents.airOpsAffected.label" default="Affects Operations" /></span>
 					
 						<span class="property-value" aria-labelledby="airOpsAffected-label"><g:fieldValue bean="${archiveIncidents}" field="airOpsAffected"/></span>
 					

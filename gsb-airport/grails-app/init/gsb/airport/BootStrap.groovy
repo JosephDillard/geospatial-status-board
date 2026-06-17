@@ -60,7 +60,7 @@ class BootStrap {
 
     private static final List<Map> DEFAULT_BANNER_TEXTS = [
         [slot: 'brandTitle', label: 'Banner Title', textValue: 'Airport Status', sortOrder: 1],
-        [slot: 'brandSubtitle', label: 'Banner Subtitle', textValue: 'Geospatial Status Board', sortOrder: 2],
+        [slot: 'brandSubtitle', label: 'Banner Subtitle', textValue: 'Emergency Management', previousTextValue: 'Geospatial Status Board', sortOrder: 2],
         [slot: 'securityMessage', label: 'Top Center Banner', textValue: 'Status app linkable to geospatial data', sortOrder: 3],
         [slot: 'useMessage', label: 'Top Right Banner', textValue: 'Dashboard and map view of airport and airfield status', sortOrder: 4],
         [slot: 'versionMessage', label: 'Footer Banner', textValue: 'GSB', sortOrder: 5],
@@ -135,7 +135,8 @@ class BootStrap {
     private void seedAppChromeContent() {
         AppBannerText.withTransaction {
             DEFAULT_BANNER_TEXTS.each { Map row ->
-                if (!AppBannerText.findBySlot(row.slot as String)) {
+                AppBannerText bannerText = AppBannerText.findBySlot(row.slot as String)
+                if (!bannerText) {
                     new AppBannerText(
                         slot: row.slot,
                         label: row.label,
@@ -143,6 +144,9 @@ class BootStrap {
                         sortOrder: row.sortOrder,
                         active: true
                     ).save(failOnError: true)
+                } else if (row.previousTextValue && bannerText.textValue == row.previousTextValue) {
+                    bannerText.textValue = row.textValue
+                    bannerText.save(failOnError: true)
                 }
             }
         }
