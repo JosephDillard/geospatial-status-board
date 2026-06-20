@@ -138,7 +138,7 @@
 }
 
 .geospatial-status-board-section {
-    margin: 0 auto;
+    margin: 0 auto 1.5rem auto;
     max-width: 1120px;
 }
 
@@ -162,7 +162,18 @@
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
-.geospatial-status-board-module {
+.geospatial-status-board-link-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.geospatial-status-board-link-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
+}
+
+.geospatial-status-board-module,
+.geospatial-status-board-hub-link {
     background: #ffffff;
     border: 1px solid #d7e0e3;
     border-radius: 6px;
@@ -174,25 +185,56 @@
 }
 
 .geospatial-status-board-module:hover,
-.geospatial-status-board-module:focus {
+.geospatial-status-board-module:focus,
+.geospatial-status-board-hub-link:hover,
+.geospatial-status-board-hub-link:focus {
     border-color: #1f7a8c;
     color: #17212b;
     text-decoration: none;
 }
 
 .geospatial-status-board-module span,
-.geospatial-status-board-module small {
+.geospatial-status-board-module small,
+.geospatial-status-board-hub-link span,
+.geospatial-status-board-hub-link small,
+.geospatial-status-board-hub-link code {
     display: block;
 }
 
-.geospatial-status-board-module span {
+.geospatial-status-board-module span,
+.geospatial-status-board-hub-link span {
     font-weight: 700;
     margin-bottom: 0.5rem;
 }
 
-.geospatial-status-board-module small {
+.geospatial-status-board-module small,
+.geospatial-status-board-hub-link small {
     color: #6d7881;
+    line-height: 1.35;
+}
+
+.geospatial-status-board-hub-link code {
+    background: #edf4f7;
+    border: 1px solid #d5e2e7;
+    border-radius: 4px;
+    color: #315063;
+    font-size: 0.74rem;
+    margin-top: 0.75rem;
     overflow-wrap: anywhere;
+    padding: 0.35rem 0.45rem;
+    white-space: normal;
+}
+
+.geospatial-status-board-api-link {
+    border-left: 4px solid #1f7a8c;
+}
+
+.geospatial-status-board-integration-link {
+    border-left: 4px solid #806f2f;
+}
+
+.geospatial-status-board-inventory-section {
+    padding-bottom: 1rem;
 }
 
 .geospatial-status-board-empty-state {

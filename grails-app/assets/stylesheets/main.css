@@ -1495,12 +1495,14 @@ img.grails-logo {
 .geo-view-control,
 .geo-ai-control,
 .geo-place-search-control,
+.geo-poi-search-control,
 .geo-north-control {
     position: relative;
     width: 42px;
 }
 
-.geo-place-search-control {
+.geo-place-search-control,
+.geo-poi-search-control {
     display: grid;
     gap: 0.24rem;
 }
@@ -1565,6 +1567,7 @@ img.grails-logo {
 .geo-map-square-button.is-active,
 .geo-ai-toggle.is-active,
 .geo-place-search-toggle.is-active,
+.geo-poi-search-toggle.is-active,
 .geo-measure-toggle.is-active {
     background: #38bdf8;
     border-color: #7dd3fc;
@@ -1577,7 +1580,8 @@ img.grails-logo {
     opacity: 0.5;
 }
 
-.geo-place-search-clear {
+.geo-place-search-clear,
+.geo-poi-search-clear {
     background: rgba(11, 39, 73, 0.9);
     border: 1px solid var(--geo-map-border);
     border-radius: 5px;
@@ -1593,7 +1597,9 @@ img.grails-logo {
 }
 
 .geo-place-search-clear:hover,
-.geo-place-search-clear:focus {
+.geo-place-search-clear:focus,
+.geo-poi-search-clear:hover,
+.geo-poi-search-clear:focus {
     background: #38bdf8;
     border-color: #7dd3fc;
     color: #031525;
@@ -1711,6 +1717,11 @@ img.grails-logo {
 }
 
 .geo-place-search-toggle {
+    font-size: 0.7rem;
+    letter-spacing: 0;
+}
+
+.geo-poi-search-toggle {
     font-size: 0.7rem;
     letter-spacing: 0;
 }

@@ -21,6 +21,7 @@ class GeoHealthController {
         Map geoConfig = asMap(grailsApplication.config.geo)
         Map geoserverConfig = asMap(geoConfig.geoserver)
         Map geoaiConfig = asMap(geoConfig.geoai)
+        Map gatewayConfig = asMap(geoConfig.gateway)
         Map healthConfig = asMap(geoConfig.health)
         int timeoutMs = asInteger(healthConfig.requestTimeoutMs, 2500)
 
@@ -36,6 +37,11 @@ class GeoHealthController {
                 geoai    : checkHttp(
                     'GeoAI API',
                     geoaiHealthUrl(geoaiConfig),
+                    timeoutMs
+                ),
+                gateway  : checkHttp(
+                    'Data Gateway',
+                    gatewayHealthUrl(gatewayConfig),
                     timeoutMs
                 )
             ]
@@ -142,6 +148,27 @@ class GeoHealthController {
         apiUrl ? "${apiUrl.replaceAll('/+$', '')}/health" : ''
     }
 
+    private String gatewayHealthUrl(Map gatewayConfig) {
+        if (!asBoolean(gatewayConfig.enabled, true)) {
+            return ''
+        }
+
+        String explicitHealthUrl = gatewayConfig.healthUrl?.toString()
+        if (explicitHealthUrl) {
+            return explicitHealthUrl
+        }
+
+        String hubUrl = gatewayConfig.hubUrl?.toString()
+        if (!hubUrl) {
+            return ''
+        }
+
+        String trimmed = hubUrl.replaceAll('/+$', '')
+        int hubIndex = trimmed.indexOf('/hubs/')
+        String baseUrl = hubIndex > 0 ? trimmed.substring(0, hubIndex) : trimmed
+        "${baseUrl}/health"
+    }
+
     private Map status(boolean up, String label, String message, Map details = [:]) {
         [
             status : up ? 'up' : 'down',
@@ -171,5 +198,13 @@ class GeoHealthController {
         }
 
         value.toString().isInteger() ? value.toString() as int : defaultValue
+    }
+
+    private boolean asBoolean(Object value, boolean defaultValue) {
+        if (value == null) {
+            return defaultValue
+        }
+
+        value instanceof Boolean ? value : value.toString().toBoolean()
     }
 }

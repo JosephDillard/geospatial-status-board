@@ -178,6 +178,24 @@
                     Clear
                 </button>
             </div>
+            <div id="geo-poi-search-tools" class="geo-poi-search-control">
+                <button id="geo-poi-search-toggle"
+                        type="button"
+                        class="geo-map-square-button geo-poi-search-toggle"
+                        aria-label="Find nearby support POIs"
+                        aria-pressed="false"
+                        title="Find nearby support POIs">
+                    POI
+                </button>
+                <button id="geo-poi-search-clear"
+                        type="button"
+                        class="geo-poi-search-clear"
+                        aria-label="Clear support POI results"
+                        title="Clear support POI results"
+                        hidden>
+                    Clear
+                </button>
+            </div>
             <div id="geo-ai-tools" class="geo-ai-control">
                 <button id="geo-ai-toggle"
                         type="button"
@@ -445,6 +463,9 @@
     var placeSearchTools = document.getElementById('geo-place-search-tools');
     var placeSearchToggle = document.getElementById('geo-place-search-toggle');
     var placeSearchClear = document.getElementById('geo-place-search-clear');
+    var poiSearchTools = document.getElementById('geo-poi-search-tools');
+    var poiSearchToggle = document.getElementById('geo-poi-search-toggle');
+    var poiSearchClear = document.getElementById('geo-poi-search-clear');
     var geoAiTools = document.getElementById('geo-ai-tools');
     var geoAiToggle = document.getElementById('geo-ai-toggle');
     var geoAiPanel = document.getElementById('geo-ai-panel');
@@ -468,6 +489,8 @@
     var measureLayerIds = ['measure-line', 'measure-points'];
     var placeSearchResultSourceId = 'place-search-results';
     var placeSearchResultLayerId = 'place-search-result-points';
+    var supportPoiResultSourceId = 'support-poi-results';
+    var supportPoiResultLayerId = 'support-poi-result-points';
     var incidentDraftSourceId = 'incident-draft-source';
     var incidentDraftLayerId = 'incident-draft-layer';
     var localIncidentSourceId = 'incident-created-source';
@@ -489,12 +512,19 @@
     var measurePoints = [];
     var incidentCreateMode = false;
     var placeSearchMode = false;
+    var supportPoiMode = false;
     var placeSearchResults = [];
+    var supportPoiResults = [];
     var activePlaceSearchResultIndex = null;
     var activePlaceSearchPopup = null;
+    var activeSupportPoiResultIndex = null;
+    var activeSupportPoiPopup = null;
     var lastPlaceSearchLngLat = null;
     var lastPlaceSearchPayload = null;
+    var lastSupportPoiLngLat = null;
+    var lastSupportPoiPayload = null;
     var placeSearchRequestSeq = 0;
+    var supportPoiRequestSeq = 0;
     var incidentDraft = null;
     var coordinateMarkers = [];
     var coordinateMarkerSequence = 0;
@@ -1021,6 +1051,7 @@
         geoAiToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) {
             setPlaceSearchMode(false);
+            setSupportPoiMode(false);
             setIncidentCreateMode(false);
             setIncidentPanelOpen(false);
             setMeasureMode(false);
@@ -2475,6 +2506,7 @@
         }
         if (placeSearchMode) {
             setMeasureMode(false);
+            setSupportPoiMode(false);
             setIncidentCreateMode(false);
             setGeoAiPanelOpen(false);
             map.getCanvas().style.cursor = 'help';
@@ -2533,6 +2565,371 @@
                     popup.setHTML('<div class="geo-map-popup-title">Nearby Places</div><p class="geo-place-search-empty">' + escapeHtml(error.message || 'Search failed') + '</p>');
                 }
                 setStatus('Nearby place search failed: ' + (error.message || 'Search failed'), true);
+            });
+    }
+
+    function supportPoiConfig() {
+        return config.supportPoi || {};
+    }
+
+    function supportPoiLimit() {
+        return Math.max(1, Math.min(Number(supportPoiConfig().resultLimit || 8), 20));
+    }
+
+    function supportPoiRadius() {
+        return Math.max(500, Math.min(Number(supportPoiConfig().radiusM || 20000), 50000));
+    }
+
+    function supportPoiLookupUrl(lngLat) {
+        var supportUrl = supportPoiConfig().supportUrl;
+        if (!supportUrl) {
+            return '';
+        }
+        var url = new URL(supportUrl, window.location.href);
+        url.searchParams.set('latitude', String(lngLat.lat));
+        url.searchParams.set('longitude', String(lngLat.lng));
+        url.searchParams.set('radius_m', String(supportPoiRadius()));
+        url.searchParams.set('max_results', String(supportPoiLimit()));
+        return url.toString();
+    }
+
+    function normalizeSupportPoiResults(payload) {
+        return ((payload || {}).nearby_support || []).map(function (entry) {
+            return {
+                title: entry.name || 'Support point',
+                category: entry.category || 'support',
+                distanceKm: entry.distance_km == null ? null : Number(entry.distance_km),
+                source: entry.source || (payload || {}).source || 'support',
+                coordinates: normalizePlaceCoordinate(entry.longitude, entry.latitude)
+            };
+        }).filter(function (entry) {
+            return !!entry.coordinates;
+        });
+    }
+
+    function fetchSupportPoiResults(lngLat) {
+        var url = supportPoiLookupUrl(lngLat);
+        if (!url) {
+            return Promise.reject(new Error('Support POI URL is not configured.'));
+        }
+
+        return fetch(url, {
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(function (response) {
+            return response.json().then(function (payload) {
+                if (!response.ok) {
+                    throw new Error(payload.message || payload.error || 'Support lookup returned HTTP ' + response.status);
+                }
+                return {
+                    source: payload.source || 'Support POI',
+                    message: payload.message || '',
+                    status: payload.status || 'ok',
+                    results: normalizeSupportPoiResults(payload)
+                };
+            });
+        });
+    }
+
+    function formatSupportPoiDistance(distanceKm) {
+        if (distanceKm == null || Number.isNaN(distanceKm)) {
+            return '';
+        }
+        return formatDistance(distanceKm * 1000);
+    }
+
+    function supportPoiFeatureCollection() {
+        return {
+            type: 'FeatureCollection',
+            features: supportPoiResults.map(function (result, index) {
+                if (!result.coordinates) {
+                    return null;
+                }
+                return {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: result.coordinates
+                    },
+                    properties: {
+                        resultIndex: index,
+                        title: result.title || 'Support point',
+                        category: result.category || 'support',
+                        distance: formatSupportPoiDistance(result.distanceKm),
+                        active: activeSupportPoiResultIndex === index
+                    }
+                };
+            }).filter(Boolean)
+        };
+    }
+
+    function updateSupportPoiResultSource() {
+        if (map && map.getSource(supportPoiResultSourceId)) {
+            map.getSource(supportPoiResultSourceId).setData(supportPoiFeatureCollection());
+            if (map.getLayer(supportPoiResultLayerId)) {
+                map.moveLayer(supportPoiResultLayerId);
+            }
+        }
+        if (poiSearchClear) {
+            poiSearchClear.hidden = !supportPoiResults.length;
+        }
+    }
+
+    function ensureSupportPoiResultLayer() {
+        if (!map.getSource(supportPoiResultSourceId)) {
+            map.addSource(supportPoiResultSourceId, {
+                type: 'geojson',
+                data: emptyFeatureCollection()
+            });
+        }
+        if (!map.getLayer(supportPoiResultLayerId)) {
+            map.addLayer({
+                id: supportPoiResultLayerId,
+                type: 'circle',
+                source: supportPoiResultSourceId,
+                paint: {
+                    'circle-radius': [
+                        'case',
+                        ['boolean', ['get', 'active'], false],
+                        mapPointRadius(10),
+                        mapPointRadius(7)
+                    ],
+                    'circle-color': [
+                        'case',
+                        ['boolean', ['get', 'active'], false],
+                        '#facc15',
+                        '#ea580c'
+                    ],
+                    'circle-opacity': 0.92,
+                    'circle-stroke-color': '#fff7ed',
+                    'circle-stroke-width': [
+                        'case',
+                        ['boolean', ['get', 'active'], false],
+                        3,
+                        2
+                    ]
+                }
+            });
+        }
+    }
+
+    function removeActiveSupportPoiPopup() {
+        if (activeSupportPoiPopup) {
+            activeSupportPoiPopup.remove();
+            activeSupportPoiPopup = null;
+        }
+    }
+
+    function closeSupportPoiPopup() {
+        removeActiveSupportPoiPopup();
+        activeSupportPoiResultIndex = null;
+        updateSupportPoiResultSource();
+    }
+
+    function createSupportPoiPopup(lngLat, html) {
+        removeActiveSupportPoiPopup();
+        var popup = new maplibregl.Popup({
+            className: 'geo-map-feature-popup geo-poi-search-popup',
+            maxWidth: '390px'
+        })
+            .setLngLat(lngLat)
+            .setHTML(html)
+            .addTo(map);
+        activeSupportPoiPopup = popup;
+        popup.on('close', function () {
+            if (activeSupportPoiPopup === popup) {
+                activeSupportPoiPopup = null;
+            }
+        });
+        return popup;
+    }
+
+    function restoreSupportPoiPopup() {
+        if (!lastSupportPoiLngLat || !lastSupportPoiPayload) {
+            return false;
+        }
+        var popup = createSupportPoiPopup(
+            lastSupportPoiLngLat,
+            supportPoiPopupHtml(lastSupportPoiPayload, lastSupportPoiLngLat)
+        );
+        bindSupportPoiPopupInteractions(popup);
+        return true;
+    }
+
+    function setSupportPoiResults(results) {
+        supportPoiResults = (results || []).slice(0, supportPoiLimit());
+        activeSupportPoiResultIndex = null;
+        updateSupportPoiResultSource();
+    }
+
+    function clearSupportPoiResults(silent) {
+        supportPoiRequestSeq += 1;
+        supportPoiResults = [];
+        activeSupportPoiResultIndex = null;
+        lastSupportPoiLngLat = null;
+        lastSupportPoiPayload = null;
+        updateSupportPoiResultSource();
+        removeActiveSupportPoiPopup();
+        if (!silent) {
+            setStatus('Support POI results cleared.');
+        }
+    }
+
+    function setActiveSupportPoiResult(index) {
+        activeSupportPoiResultIndex = Number.isFinite(index) ? index : null;
+        updateSupportPoiResultSource();
+    }
+
+    function panToSupportPoiResult(result) {
+        if (!result || !result.coordinates) {
+            return;
+        }
+        if (activeSupportPoiPopup) {
+            activeSupportPoiPopup.setLngLat(result.coordinates);
+        }
+        map.easeTo({
+            center: result.coordinates,
+            zoom: Math.max(map.getZoom(), 15),
+            duration: 650,
+            essential: true
+        });
+    }
+
+    function supportPoiPopupHtml(payload, lngLat) {
+        var results = (payload.results || []).slice(0, supportPoiLimit());
+        var note = payload.message ? '<p class="geo-place-search-empty">' + escapeHtml(payload.message) + '</p>' : '';
+        if (!results.length) {
+            return '<div class="geo-map-popup-title">Nearby Support POIs</div>' +
+                '<p class="geo-place-search-empty">No nearby support POIs found.</p>' + note;
+        }
+
+        var items = results.map(function (result, index) {
+            var distance = formatSupportPoiDistance(result.distanceKm);
+            return '<li data-support-poi-result-index="' + index + '" tabindex="0">' +
+                '<div class="geo-place-search-result-title"><span>' + escapeHtml(result.title || 'Support point') + '</span>' +
+                '<button type="button" class="geo-place-search-result-zoom" data-support-poi-result-zoom="' + index +
+                '" aria-label="Zoom to ' + escapeHtml(result.title || 'support point') + '">Go</button></div>' +
+                '<span>' + escapeHtml(result.category || 'support') + (distance ? ' - ' + escapeHtml(distance) : '') + '</span>' +
+                '</li>';
+        }).join('');
+
+        return '<div class="geo-map-popup-title">Nearby Support POIs</div>' +
+            '<div class="geo-place-search-meta">' + escapeHtml(payload.source || 'Support POI') +
+            ' near ' + lngLat.lat.toFixed(5) + ', ' + lngLat.lng.toFixed(5) + '</div>' +
+            note +
+            '<ol class="geo-place-search-results">' + items + '</ol>';
+    }
+
+    function bindSupportPoiPopupInteractions(popup) {
+        if (!popup || typeof popup.getElement !== 'function') {
+            return;
+        }
+        var popupElement = popup.getElement();
+        if (!popupElement) {
+            return;
+        }
+        Array.prototype.forEach.call(popupElement.querySelectorAll('[data-support-poi-result-index]'), function (item) {
+            var highlight = function () {
+                var index = Number(item.getAttribute('data-support-poi-result-index'));
+                if (!Number.isFinite(index)) {
+                    return;
+                }
+                setActiveSupportPoiResult(index);
+            };
+            item.addEventListener('mouseenter', highlight);
+            item.addEventListener('focusin', highlight);
+            item.addEventListener('mouseleave', function () {
+                setActiveSupportPoiResult(null);
+            });
+            item.addEventListener('focusout', function () {
+                setActiveSupportPoiResult(null);
+            });
+        });
+        Array.prototype.forEach.call(popupElement.querySelectorAll('[data-support-poi-result-zoom]'), function (button) {
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                var index = Number(button.getAttribute('data-support-poi-result-zoom'));
+                if (!Number.isFinite(index)) {
+                    return;
+                }
+                setActiveSupportPoiResult(index);
+                panToSupportPoiResult(supportPoiResults[index]);
+            });
+        });
+    }
+
+    function setSupportPoiMode(active) {
+        supportPoiMode = !!active;
+        if (poiSearchToggle) {
+            poiSearchToggle.classList.toggle('is-active', supportPoiMode);
+            poiSearchToggle.setAttribute('aria-pressed', supportPoiMode ? 'true' : 'false');
+        }
+        if (supportPoiMode) {
+            setPlaceSearchMode(false);
+            setMeasureMode(false);
+            setIncidentCreateMode(false);
+            setGeoAiPanelOpen(false);
+            map.getCanvas().style.cursor = 'help';
+            if (supportPoiResults.length && restoreSupportPoiPopup()) {
+                setStatus('Support POI results shown. Click a map location to search again.');
+            } else {
+                setStatus('Support POI search ready. Click a map location to find nearby support.');
+            }
+        } else if (map) {
+            supportPoiRequestSeq += 1;
+            closeSupportPoiPopup();
+            map.getCanvas().style.cursor = '';
+            if (supportPoiResults.length) {
+                setStatus('Support POI search paused. Results remain until cleared.');
+            }
+        }
+    }
+
+    function showSupportPoiPopup(lngLat) {
+        clearSupportPoiResults(true);
+        var searchLngLat = normalizedSearchLngLat(lngLat);
+        var requestId = ++supportPoiRequestSeq;
+        lastSupportPoiLngLat = searchLngLat;
+        lastSupportPoiPayload = null;
+        var popup = createSupportPoiPopup(
+            searchLngLat,
+            '<div class="geo-map-popup-title">Nearby Support POIs</div><p class="geo-place-search-empty">Searching...</p>'
+        );
+
+        fetchSupportPoiResults(searchLngLat)
+            .then(function (payload) {
+                if (requestId !== supportPoiRequestSeq) {
+                    return;
+                }
+                lastSupportPoiPayload = {
+                    source: payload.source || 'Support POI',
+                    message: payload.message || '',
+                    results: (payload.results || []).slice(0, supportPoiLimit())
+                };
+                setSupportPoiResults(payload.results || []);
+                if (activeSupportPoiPopup === popup) {
+                    popup.setHTML(supportPoiPopupHtml(lastSupportPoiPayload, searchLngLat));
+                    bindSupportPoiPopupInteractions(popup);
+                }
+                setStatus('Support POI search complete.');
+            })
+            .catch(function (error) {
+                if (requestId !== supportPoiRequestSeq) {
+                    return;
+                }
+                lastSupportPoiPayload = {
+                    source: 'Support POI',
+                    message: error.message || 'Support lookup failed',
+                    results: []
+                };
+                setSupportPoiResults([]);
+                if (activeSupportPoiPopup === popup) {
+                    popup.setHTML(supportPoiPopupHtml(lastSupportPoiPayload, searchLngLat));
+                }
+                setStatus('Support POI search failed: ' + (error.message || 'Support lookup failed'), true);
             });
     }
 
@@ -2727,6 +3124,9 @@
         measureMode = enabled;
         if (measureMode && placeSearchMode) {
             setPlaceSearchMode(false);
+        }
+        if (measureMode && supportPoiMode) {
+            setSupportPoiMode(false);
         }
         if (measureMode && incidentCreateMode) {
             incidentCreateMode = false;
@@ -3459,6 +3859,7 @@
         }
         if (incidentCreateMode) {
             setPlaceSearchMode(false);
+            setSupportPoiMode(false);
             setMeasureMode(false);
             setCoordinateCopyMode(false);
             setStatus('Click the map to place an incident.');
@@ -4681,6 +5082,7 @@
     viewTools.hidden = !config.tools.fitLayer;
     incidentTools.hidden = !config.tools.createIncidents;
     placeSearchTools.hidden = !config.tools.placeSearch;
+    poiSearchTools.hidden = !config.tools.supportPoi;
     geoAiTools.hidden = !config.tools.geoaiRequests;
     measureTools.hidden = !config.tools.measureDistance;
     drawTools.hidden = true;
@@ -4737,6 +5139,7 @@
         initMiniMap();
         ensureMeasureLayers();
         ensurePlaceSearchResultLayer();
+        ensureSupportPoiResultLayer();
         registerIncidentIcons();
         ensureIncidentOverlayLayers();
 
@@ -4802,6 +5205,10 @@
             showPlaceSearchPopup(event.lngLat);
             return;
         }
+        if (supportPoiMode) {
+            showSupportPoiPopup(event.lngLat);
+            return;
+        }
         if (config.tools.coordinates) {
             updateCoordinateReadout(event.lngLat);
         }
@@ -4843,6 +5250,10 @@
             return;
         }
         if (placeSearchMode) {
+            map.getCanvas().style.cursor = 'help';
+            return;
+        }
+        if (supportPoiMode) {
             map.getCanvas().style.cursor = 'help';
             return;
         }
@@ -4937,6 +5348,7 @@
             if (enabled) {
                 setGeoAiPanelOpen(false);
                 setPlaceSearchMode(false);
+                setSupportPoiMode(false);
             }
             setMeasureMode(enabled);
         });
@@ -4950,6 +5362,7 @@
             event.stopPropagation();
             setGeoAiPanelOpen(false);
             setPlaceSearchMode(false);
+            setSupportPoiMode(false);
             setIncidentPanelOpen(false);
             clearIncidentDraft();
             setIncidentCreateMode(!incidentCreateMode);
@@ -4965,6 +5378,18 @@
     if (placeSearchClear) {
         placeSearchClear.addEventListener('click', function () {
             clearPlaceSearchResults(false);
+        });
+    }
+    if (poiSearchToggle) {
+        poiSearchToggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            setSupportPoiMode(poiSearchToggle.getAttribute('aria-pressed') !== 'true');
+        });
+    }
+    if (poiSearchClear) {
+        poiSearchClear.addEventListener('click', function () {
+            clearSupportPoiResults(false);
         });
     }
     if (incidentCreateClose) {

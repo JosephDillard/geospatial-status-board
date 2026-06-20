@@ -53,6 +53,13 @@
                                 <span class="gsb-service-health-dot" aria-hidden="true"></span>
                                 <span>GeoAI</span>
                             </div>
+                            <div class="gsb-service-health-item is-checking"
+                                 data-service-health="gateway"
+                                 data-service-label="Data Gateway"
+                                 title="Checking Data Gateway">
+                                <span class="gsb-service-health-dot" aria-hidden="true"></span>
+                                <span>Gateway</span>
+                            </div>
                         </div>
                     </li>
                 </sec:ifLoggedIn>
@@ -117,7 +124,7 @@
     }
 
     var healthUrl = panel.getAttribute('data-health-url');
-    var serviceKeys = ['geoserver', 'postgis', 'geoai'];
+    var serviceKeys = ['geoserver', 'postgis', 'geoai', 'gateway'];
 
     function setServiceHealth(key, status, message) {
         var item = panel.querySelector('[data-service-health="' + key + '"]');

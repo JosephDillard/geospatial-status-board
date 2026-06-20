@@ -92,6 +92,11 @@ class MapController {
                 resultLimit          : asInteger(placeSearchConfig.resultLimit, 5),
                 wikipediaRadiusMeters: asInteger(placeSearchConfig.wikipediaRadiusMeters, 10000)
             ],
+            supportPoi      : [
+                supportUrl: createLink(uri: '/incident-analyst/api/osm/support'),
+                radiusM   : asInteger(incidentAnalystConfig.supportRadiusM, 20000),
+                resultLimit: asInteger(incidentAnalystConfig.supportResultLimit, 8)
+            ],
             incidentAnalyst : [
                 enabled       : incidentAnalystMode,
                 supportUrl    : createLink(uri: '/incident-analyst/api/osm/support'),
@@ -261,7 +266,8 @@ class MapController {
             fitLayer       : asBoolean(rawTools.fitLayer, true),
             createIncidents: asBoolean(rawTools.createIncidents, true),
             geoaiRequests  : asBoolean(rawTools.geoaiRequests, true),
-            placeSearch    : asBoolean(rawTools.placeSearch, true)
+            placeSearch    : asBoolean(rawTools.placeSearch, true),
+            supportPoi     : asBoolean(rawTools.supportPoi, true)
         ]
     }
 

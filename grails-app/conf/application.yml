@@ -102,6 +102,7 @@ geo:
     gateway:
         enabled: "${GEOSPATIAL_GATEWAY_SIGNALR_ENABLED:true}"
         hubUrl: "${GEOSPATIAL_GATEWAY_HUB_URL:http://localhost:7070/hubs/geospatial-updates}"
+        healthUrl: "${GEOSPATIAL_GATEWAY_HEALTH_URL:http://localhost:7070/health}"
         reconnectDelayMs: "${GEOSPATIAL_GATEWAY_RECONNECT_DELAY_MS:5000}"
         eventName: "${GEOSPATIAL_GATEWAY_LAYER_REFRESH_EVENT:layer.refresh_requested}"
     incidentAnalyst:
@@ -175,6 +176,7 @@ geo:
             createIncidents: true
             geoaiRequests: true
             placeSearch: true
+            supportPoi: true
         center:
             - -106.0
             - 34.5
