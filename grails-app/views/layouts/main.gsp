@@ -7,7 +7,40 @@
         <g:layoutTitle default="Emergency Management"/>
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <asset:link rel="icon" href="favicon.ico" type="image/x-ico"/>
+    <%
+        String faviconController = controllerName?.toString() ?: params.controller?.toString() ?: 'home'
+        String faviconUri = request.forwardURI?.toString() ?: request.requestURI?.toString() ?: ''
+        if (faviconUri.contains('/incident-analyst')) {
+            faviconController = 'incidentAnalyst'
+        }
+        Map faviconConfig = [
+            home                 : [text: 'H', color: '#1f7a8c'],
+            map                  : [text: 'M', color: '#246b49'],
+            incidentAnalyst      : [text: 'IA', color: '#b45309'],
+            currentIncidents     : [text: 'CI', color: '#b91c1c'],
+            archiveIncidents     : [text: 'AR', color: '#6d28d9'],
+            airportStatus        : [text: 'AS', color: '#0369a1'],
+            currentSIT           : [text: 'CS', color: '#0f766e'],
+            airfieldSurfaceStatus: [text: 'AF', color: '#64748b'],
+            navaid               : [text: 'N', color: '#2563eb'],
+            engineerAssets       : [text: 'E', color: '#166534'],
+            fireFightingAssets   : [text: 'F', color: '#dc2626'],
+            airportLookupOption  : [text: 'AL', color: '#7c3aed'],
+            incidentLookupOption : [text: 'IL', color: '#c2410c'],
+            appAdmin             : [text: 'AA', color: '#334155'],
+            geoAi                : [text: 'GA', color: '#0891b2'],
+            geoHealth            : [text: 'GH', color: '#4d7c0f'],
+            login                : [text: 'L', color: '#475569']
+        ]
+        Map activeFavicon = faviconConfig[faviconController] ?: [text: 'EM', color: '#24313f']
+        String faviconText = activeFavicon.text?.toString() ?: 'EM'
+        String faviconColor = activeFavicon.color?.toString() ?: '#24313f'
+        int faviconFontSize = faviconText.size() > 1 ? 23 : 32
+        String faviconSvg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${faviconColor}"/><path d="M0 45 L64 24 V64 H0Z" fill="#ffffff" opacity="0.14"/><text x="32" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="${faviconFontSize}" font-weight="800" fill="#ffffff">${faviconText}</text></svg>"""
+        String faviconHref = 'data:image/svg+xml,' + java.net.URLEncoder.encode(faviconSvg, 'UTF-8').replace('+', '%20')
+    %>
+    <link rel="icon" href="${raw(faviconHref)}" type="image/svg+xml" sizes="any"/>
+    <asset:link rel="alternate icon" href="favicon.ico" type="image/x-ico"/>
 
     <asset:stylesheet src="application.css"/>
 
@@ -70,7 +103,7 @@
                     </li>
                     <li class="nav-item">
                         <g:form controller="logout" action="index" method="POST" class="geospatial-status-board-logout-form">
-                            <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+                            <button type="submit" class="btn btn-outline-light btn-sm geospatial-status-board-logout-button">Logout</button>
                         </g:form>
                     </li>
                     <sec:ifAnyGranted roles="ROLE_ADMIN">

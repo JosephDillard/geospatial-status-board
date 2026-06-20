@@ -2245,6 +2245,11 @@ img.grails-logo {
     z-index: 4;
 }
 
+.geo-mini-map.is-collapsed {
+    height: 42px;
+    width: 42px;
+}
+
 .geo-mini-map[hidden] {
     display: none;
 }
@@ -2253,6 +2258,39 @@ img.grails-logo {
     cursor: move;
     height: 100%;
     width: 100%;
+}
+
+.geo-mini-map.is-collapsed .geo-mini-map-canvas {
+    display: none;
+}
+
+.geo-mini-map-toggle {
+    align-items: center;
+    background: rgba(15, 53, 96, 0.94);
+    border: 1px solid rgba(191, 219, 254, 0.7);
+    border-radius: 4px;
+    color: #eef6ff;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 1rem;
+    font-weight: 900;
+    height: 28px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    width: 28px;
+    z-index: 2;
+}
+
+.geo-mini-map-toggle:hover,
+.geo-mini-map-toggle:focus {
+    background: #38bdf8;
+    border-color: #7dd3fc;
+    color: #031525;
+    outline: none;
 }
 
 .geo-mini-map .maplibregl-ctrl-attrib,

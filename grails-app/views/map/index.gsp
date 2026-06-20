@@ -362,6 +362,12 @@
         </aside>
         <div id="geo-map" class="geo-map-canvas"></div>
         <aside id="geo-mini-map" class="geo-mini-map" aria-label="Overview map" hidden>
+            <button id="geo-mini-map-toggle"
+                    type="button"
+                    class="geo-mini-map-toggle"
+                    aria-label="Minimize overview map"
+                    aria-expanded="true"
+                    title="Minimize overview map">-</button>
             <div id="geo-mini-map-canvas" class="geo-mini-map-canvas"></div>
         </aside>
     </section>
@@ -446,6 +452,7 @@
     var coordinateClickCopy = document.getElementById('geo-coordinate-click-copy');
     var coordinateMarkerClear = document.getElementById('geo-coordinate-marker-clear');
     var miniMapPanel = document.getElementById('geo-mini-map');
+    var miniMapToggle = document.getElementById('geo-mini-map-toggle');
     var miniMapCanvas = document.getElementById('geo-mini-map-canvas');
     var zoomInButton = document.getElementById('geo-zoom-in');
     var zoomOutButton = document.getElementById('geo-zoom-out');
@@ -533,6 +540,7 @@
     var miniMapViewSourceId = 'mini-map-current-view';
     var miniMapViewLayerId = 'mini-map-current-view-outline';
     var syncingMiniMap = false;
+    var miniMapCollapsed = false;
     var miniMapDraggingView = false;
     var miniMapHoldOverview = false;
     var localIncidentFeatures = [];
@@ -1805,6 +1813,25 @@
         return Math.max(0, Number(map.getZoom() || 0) - 6);
     }
 
+    function setMiniMapCollapsed(collapsed) {
+        miniMapCollapsed = !!collapsed;
+        if (miniMapPanel) {
+            miniMapPanel.classList.toggle('is-collapsed', miniMapCollapsed);
+        }
+        if (miniMapToggle) {
+            miniMapToggle.textContent = miniMapCollapsed ? '+' : '-';
+            miniMapToggle.title = miniMapCollapsed ? 'Show overview map' : 'Minimize overview map';
+            miniMapToggle.setAttribute('aria-label', miniMapCollapsed ? 'Show overview map' : 'Minimize overview map');
+            miniMapToggle.setAttribute('aria-expanded', miniMapCollapsed ? 'false' : 'true');
+        }
+        if (!miniMapCollapsed && miniMap) {
+            window.setTimeout(function () {
+                miniMap.resize();
+                refreshMiniMapFromMain(true);
+            }, 0);
+        }
+    }
+
     function mapBoundsFeature() {
         var bounds = map.getBounds();
         var west = bounds.getWest();
@@ -1828,7 +1855,7 @@
     }
 
     function ensureMiniMapViewLayer() {
-        if (!miniMap || !miniMap.isStyleLoaded()) {
+        if (!miniMap || miniMapCollapsed || !miniMap.isStyleLoaded()) {
             return;
         }
         if (!miniMap.getSource(miniMapViewSourceId)) {
@@ -1852,7 +1879,7 @@
     }
 
     function updateMiniMapViewBox() {
-        if (!miniMap || !miniMap.isStyleLoaded()) {
+        if (!miniMap || miniMapCollapsed || !miniMap.isStyleLoaded()) {
             return;
         }
         ensureMiniMapViewLayer();
@@ -1863,7 +1890,7 @@
     }
 
     function centerMiniMapOnMain() {
-        if (!miniMap || syncingMiniMap) {
+        if (!miniMap || miniMapCollapsed || syncingMiniMap) {
             return;
         }
         syncingMiniMap = true;
@@ -1878,7 +1905,7 @@
     }
 
     function refreshMiniMapFromMain(recenter) {
-        if (!miniMap) {
+        if (!miniMap || miniMapCollapsed) {
             return;
         }
         if (recenter) {
@@ -1926,6 +1953,7 @@
             return;
         }
         miniMapPanel.hidden = false;
+        setMiniMapCollapsed(false);
         miniMap = new maplibregl.Map({
             container: 'geo-mini-map-canvas',
             style: rasterStyle(),
@@ -5390,6 +5418,13 @@
     if (poiSearchClear) {
         poiSearchClear.addEventListener('click', function () {
             clearSupportPoiResults(false);
+        });
+    }
+    if (miniMapToggle) {
+        miniMapToggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            setMiniMapCollapsed(!miniMapCollapsed);
         });
     }
     if (incidentCreateClose) {
