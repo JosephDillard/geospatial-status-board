@@ -184,6 +184,37 @@ places and Wikipedia context. Configure `GEONAMES_USERNAME` or
 `geo.placeSearch.geonamesUsername` to prefer GeoNames nearby Wikipedia results.
 Without a GeoNames username, the browser falls back to Wikipedia GeoSearch.
 
+## Map Command Assistant Roadmap
+
+A future OpenCLAW-style command prompt should sit on top of the shared map
+capabilities as an orchestration layer. The browser can send the prompt together
+with bounded map context, such as center, zoom, selected layer, visible incident
+ids, drawn AOI GeoJSON, and the current coordinate marker. The server should
+return a structured action plan instead of executable code.
+
+The initial allow-list should focus on existing operations:
+
+- Pan, zoom, fit a configured layer, or filter visible incidents.
+- Toggle layers and basemaps.
+- Open an incident popup or review-panel record.
+- Run Wiki/GeoNames or response-support lookup at a clicked point.
+- Summarize visible incidents using the LLM panel context.
+- Prepare an incident-plotting draft from a prompt and coordinate.
+
+Write actions should be two-step operations. For example, "plot a disaster
+relief incident at 34.904222, -106.575583" should produce a draft incident with
+title, type, severity explanation, coordinates, and affected assets; the user
+must approve it before the app calls the existing incident create/update path.
+
+Recommended server boundary:
+
+- `POST /GeoStatusBoard/map/commands/interpret` returns a structured action plan.
+- `POST /GeoStatusBoard/map/commands/execute` executes only approved allow-listed actions.
+
+Each executed command should log the original prompt, normalized action, map
+context, approval status, and affected record ids so the feature remains
+explainable during demos and code review.
+
 ## GeoAI Map Requests
 
 The map submits GeoAI jobs through same-origin proxy routes so the browser does not

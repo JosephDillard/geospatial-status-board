@@ -58,6 +58,10 @@ The app is served under `/GeoStatusBoard`.
   visible map text unless the UI is intentionally exposing raw OSM data.
 - Wiki/GeoNames place search is configured through `geo.placeSearch` and the
   optional `GEONAMES_USERNAME` environment variable.
+- Future map command assistant work should use a structured, allow-listed action
+  plan. Do not let prompt output execute arbitrary JavaScript, SQL, or controller
+  methods. Write actions such as incident plotting should show a preview and
+  require explicit user confirmation before saving.
 - GeoAI map requests should include normalized drawn AOIs in
   `map_context.aoi_geojson` when polygons are present; only fall back to the map
   bbox when no valid drawn AOI exists.

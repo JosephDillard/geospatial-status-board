@@ -53,14 +53,18 @@ The screenshot above shows the geospatial status map with GeoAI detections, the 
 ## Repository Map
 
 This repo provides the Grails status-board application, MapLibre map viewer,
-GeoServer/PostGIS local stack, and geospatial architecture notes. The companion GeoAI
-repo provides the workflow API and asset-detection pipeline used by the map viewer.
+GeoServer/PostGIS local stack, incident review surface, and geospatial
+architecture notes. The companion repos provide imagery workflows, validation,
+ingest, MCP tools, and a focused bridge/demo around the same map operations.
 
-- [Emergency Management repo](https://github.com/JosephDillard/geospatial-status-board)
-- [Emergency Management README](https://github.com/JosephDillard/geospatial-status-board/blob/master/README.md)
-- [Emergency Management Architecture](docs/geospatial-architecture.md)
-- [GeoAI Asset Detection Platform repo](https://github.com/JosephDillard/geoai-asset-detection-platform)
-- [GeoAI Asset Detection Platform README](https://github.com/JosephDillard/geoai-asset-detection-platform/blob/main/README.md)
+- [Portfolio site](https://josephdillard.github.io/JosephDillard/)
+- [Geospatial Status Board repo](https://github.com/JosephDillard/geospatial-status-board)
+- [Geospatial Status Board Architecture](docs/geospatial-architecture.md)
+- [GeoAI Asset Detection Platform](https://github.com/JosephDillard/geoai-asset-detection-platform)
+- [Geospatial Data Gateway](https://github.com/JosephDillard/geospatial-data-gateway)
+- [Geospatial MCP Services](https://github.com/JosephDillard/geospatial-mcp-services)
+- [Geospatial ETL Validation Toolkit](https://github.com/JosephDillard/geospatial-etl-validation-toolkit)
+- Map-to-AI Incident Analyst bridge/demo (local repo; GitHub publication pending)
 
 ## Run Locally
 
@@ -415,6 +419,35 @@ See:
 
 - `docs/postgis-spatialization.sql`
 - `docs/geospatial-architecture.md`
+
+## Development Roadmap
+
+Planned map work includes an OpenCLAW-style map command assistant: a prompt on
+the shared MapLibre map where an analyst can ask for map tasks in natural
+language and the app turns those requests into reviewed, structured actions.
+Candidate requests include:
+
+- "Plot a wildfire incident at 34.904222, -106.575583."
+- "Zoom to high-risk incidents north of Santa Fe."
+- "Find response support near the selected incident."
+- "Turn on airports, current incidents, and GeoAI detections."
+- "Draw an AOI around this view and submit a GeoAI road-detection run."
+
+The first version should route commands to existing map capabilities instead of
+creating a separate automation stack. Read-only commands can pan, filter, toggle
+layers, run Wiki/GeoNames or response-support lookups, and summarize visible
+incidents. Write commands, such as creating or editing an incident, should return
+a preview and require explicit user confirmation before anything is saved.
+
+Recommended implementation phases:
+
+1. Add a structured intent endpoint that converts a prompt plus map context into
+   an allow-listed action plan.
+2. Execute read-only map actions in the browser: pan/zoom, layer toggles,
+   filters, popups, summaries, and support/place searches.
+3. Add reviewed write actions for incident plotting and incident updates.
+4. Add an audit trail showing the prompt, interpreted action, user approval, and
+   final map/database change.
 
 ## Recent Local Changes
 
