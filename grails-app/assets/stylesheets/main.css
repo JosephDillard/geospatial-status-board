@@ -2350,6 +2350,33 @@ img.grails-logo {
     word-break: break-word;
 }
 
+.geo-map-popup-actions {
+    border-top: 1px solid rgba(147, 197, 253, 0.22);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+    margin-top: 0.65rem;
+    padding-top: 0.58rem;
+}
+
+.geo-map-popup-actions a {
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(125, 211, 252, 0.55);
+    border-radius: 4px;
+    color: #e0f2fe;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 0.28rem 0.45rem;
+    text-decoration: none;
+}
+
+.geo-map-popup-actions a:hover,
+.geo-map-popup-actions a:focus {
+    background: rgba(56, 189, 248, 0.24);
+    color: #ffffff;
+    outline: none;
+}
+
 .geo-place-search-meta,
 .geo-place-search-empty {
     color: #bfdbfe;

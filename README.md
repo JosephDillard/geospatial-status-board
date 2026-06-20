@@ -8,7 +8,7 @@ This repository contains a status app linkable to geospatial data for dashboard 
 - Geospatial links from status records into the map view.
 - MapLibre GL JS 5.24.0 map view backed by GeoServer WFS/GeoJSON layers, including optional GeoAI detection outputs.
 - Configurable basemaps, layer selection, feature filtering, fit-to-layer, fullscreen, distance measurement, drawing, and coordinate readout with MGRS support.
-- Route-level Incident Analyst surface for focused MCP-backed incident review without loading create-incident or LLM tools on that page.
+- Route-level Incident Analyst surface that reuses the shared map, incident plotting, Wiki, LLM, popups, table, and Kanban workflows with an added review panel.
 - Temporary coordinate markers with per-marker copy, timestamp, clear, and Google Maps actions.
 - Basemap-only minimap overview with a red current-view outline that can move the main map view.
 - Editable lookup tables for dropdown text used by airport and incident workflows.
@@ -289,10 +289,16 @@ The focused Incident Analyst route is available at:
 /GeoStatusBoard/incident-analyst
 ```
 
-It reuses the shared MapLibre basemap, layers, MGRS, measure, and map-control
-patterns, but loads as a route-level feature surface with only incident review,
-critical assets, risk scoring, and nearby support POI tools. The route proxies to
-the standalone incident analyst bridge by default:
+It reuses the shared MapLibre map view instead of carrying a duplicate map
+implementation. The same layer drawer, basemap selector, incident plotting,
+Wiki search, LLM request panel, MGRS/coordinate tools, measurement, incident
+symbology, and incident popups are available on both map entry points. The
+analyst route defaults to the Current Incidents layer, filters that layer to the
+Santa Fe-to-Colorado-border review area, and adds a right-side review panel with
+risk scoring, table/Kanban links, and nearby support lookup.
+
+Nearby support lookup proxies to the standalone incident analyst bridge by
+default:
 
 ```text
 INCIDENT_ANALYST_BRIDGE_URL=http://127.0.0.1:8775/incident-analyst

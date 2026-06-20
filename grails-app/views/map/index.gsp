@@ -2,21 +2,32 @@
 <html>
 <head>
     <meta name="layout" content="main"/>
-    <title>Map View</title>
+    <title>${pageTitle ?: 'Map View'}</title>
     <content tag="hideQuickLinks">true</content>
     <link rel="stylesheet" href="${mapLibreCssUrl}"/>
     <g:if test="${drawEnabled && mapDrawCssUrl}">
         <link rel="stylesheet" href="${mapDrawCssUrl}"/>
     </g:if>
+    <g:if test="${incidentAnalystMode}">
+        <asset:stylesheet src="incident-analyst.css"/>
+    </g:if>
 </head>
 <body>
-<main class="geo-map-page" role="main">
+<main class="geo-map-page${incidentAnalystMode ? ' incident-analyst-page' : ''}" role="main">
     <section class="geo-map-toolbar" aria-label="Map controls">
         <div>
-            <h1>Map View</h1>
-            <p>Geospatial view of airport, airfield, and incident status layers.</p>
+            <h1>${pageTitle ?: 'Map View'}</h1>
+            <p>${pageSubtitle ?: 'Geospatial view of airport, airfield, and incident status layers.'}</p>
+            <g:if test="${incidentAnalystMode}">
+                <nav class="incident-analyst-view-links" aria-label="Incident review views">
+                    <g:link controller="currentIncidents" action="index">Table</g:link>
+                    <g:link controller="currentIncidents" action="board">Kanban</g:link>
+                    <g:link controller="archiveIncidents" action="index">Archive</g:link>
+                </nav>
+            </g:if>
         </div>
-        <g:form controller="map" action="index" method="GET" class="geo-map-form" id="geo-map-form">
+        <g:set var="mapFormTarget" value="${incidentAnalystMode ? [uri: '/incident-analyst'] : [controller: 'map', action: 'index']}"/>
+        <g:form url="${mapFormTarget}" method="GET" class="geo-map-form" id="geo-map-form">
             <button id="geo-filter-toggle"
                     type="button"
                     class="geo-map-form-toggle"
@@ -55,6 +66,9 @@
         </g:form>
     </section>
 
+    <g:if test="${incidentAnalystMode}">
+        <section class="incident-analyst-workspace">
+    </g:if>
     <section class="geo-map-shell" aria-label="Geospatial map">
         <div id="geo-map-status" class="geo-map-status" aria-label="Map messages">
             <button id="geo-map-status-toggle"
@@ -333,6 +347,41 @@
             <div id="geo-mini-map-canvas" class="geo-mini-map-canvas"></div>
         </aside>
     </section>
+    <g:if test="${incidentAnalystMode}">
+        <aside class="analysis-panel" aria-label="Incident analysis panel">
+            <section class="summary">
+                <h2>Incident Review</h2>
+                <p id="summaryText">Current incidents from the shared map layer will appear here after the map loads.</p>
+                <div class="risk none" id="risk">Risk: loading</div>
+            </section>
+
+            <section>
+                <h2>Risk Breakdown</h2>
+                <div id="riskBreakdown" class="scorecard"></div>
+            </section>
+
+            <section>
+                <h2>Selected Incident</h2>
+                <div id="selectedIncident" class="scorecard scoring-note">Select an incident from the map or list.</div>
+            </section>
+
+            <section>
+                <h2>Recommended Actions</h2>
+                <ul id="actions"></ul>
+            </section>
+
+            <section>
+                <h2>Nearby Support</h2>
+                <div id="supportPois" class="result-list">Select an incident to find support.</div>
+            </section>
+
+            <section>
+                <h2>Current Incidents</h2>
+                <div id="incidents" class="result-list"></div>
+            </section>
+        </aside>
+        </section>
+    </g:if>
 </main>
 
 <script src="${mapLibreJsUrl}"></script>
@@ -346,6 +395,7 @@
 <script>
 (function () {
     var config = ${raw(mapConfigJson)};
+    var incidentAnalystConfig = ${raw(incidentAnalystConfigJson ?: '{}')};
     var incidentLookupOptions = ${raw(incidentLookupOptionsJson)};
     var incidentCreateUrl = '${createLink(controller: 'currentIncidents', action: 'mapCreate')}';
     var statusEl = document.getElementById('geo-map-status');
@@ -2019,6 +2069,38 @@
         return value == null || value === '' ? 'N/A' : value;
     }
 
+    function currentIncidentRecordId(properties) {
+        return propertyValue(properties || {}, [
+            'id',
+            'OBJECTID_1',
+            'objectid_1',
+            'objectId',
+            'objectid',
+            'incident_pk'
+        ]);
+    }
+
+    function currentIncidentPopupActions(properties) {
+        var analyst = config.incidentAnalyst || {};
+        if (!properties || properties.__layerKey !== 'currentIncidents') {
+            return '';
+        }
+
+        var links = [];
+        var recordId = currentIncidentRecordId(properties);
+        if (recordId && analyst.showUrlBase) {
+            links.push('<a href="' + escapeHtml(String(analyst.showUrlBase).replace(/\/$/, '') + '/' + encodeURIComponent(recordId)) + '">Open Incident</a>');
+        }
+        if (analyst.tableUrl) {
+            links.push('<a href="' + escapeHtml(analyst.tableUrl) + '">Table</a>');
+        }
+        if (analyst.boardUrl) {
+            links.push('<a href="' + escapeHtml(analyst.boardUrl) + '">Kanban</a>');
+        }
+
+        return links.length ? '<div class="geo-map-popup-actions">' + links.join('') + '</div>' : '';
+    }
+
     function popupHtml(feature, layer) {
         var properties = feature.properties || {};
         var title = properties[layer.labelField] || properties[layer.idField] || layer.title;
@@ -2029,7 +2111,8 @@
             return '<dt>' + escapeHtml(popupLabel(key)) + '</dt><dd>' + escapeHtml(popupValue(properties[key])) + '</dd>';
         }).join('');
 
-        return '<div class="geo-map-popup-title">' + escapeHtml(title) + '</div><dl class="geo-map-popup">' + rows + '</dl>';
+        return '<div class="geo-map-popup-title">' + escapeHtml(title) + '</div><dl class="geo-map-popup">' + rows + '</dl>' +
+            currentIncidentPopupActions(properties);
     }
 
     function placeSearchConfig() {
@@ -3462,6 +3545,7 @@
         updateIncidentSource(localIncidentSourceId, localIncidentFeatures);
         moveLocalIncidentLayerToFront();
         updateCurrentIncidentsStatus();
+        emitCurrentIncidentsUpdated();
     }
 
     function focusIncidentFeature(feature) {
@@ -3575,9 +3659,30 @@
         return select ? select.value : (layerFilters[key] || '');
     }
 
+    function analystBounds() {
+        var analyst = config.incidentAnalyst || {};
+        return analyst.enabled && analyst.bounds && analyst.bounds.length === 2 ? analyst.bounds : null;
+    }
+
+    function featureWithinAnalystBounds(feature) {
+        var bounds = analystBounds();
+        if (!bounds) {
+            return true;
+        }
+        var lngLat = featureLngLat(feature);
+        if (!lngLat) {
+            return false;
+        }
+        return lngLat.lng >= Number(bounds[0][0]) &&
+            lngLat.lng <= Number(bounds[1][0]) &&
+            lngLat.lat >= Number(bounds[0][1]) &&
+            lngLat.lat <= Number(bounds[1][1]);
+    }
+
     function filteredLayerData(key, data) {
         var layer = config.layers[key] || {};
         var filters = [];
+        var applyAnalystBounds = key === 'currentIncidents' && !!analystBounds();
         var layerField = layer.filterField;
         var layerSelected = layerFilterValue(key);
         if (layerField && layerSelected) {
@@ -3586,12 +3691,15 @@
         if (config.selectedLayer === key && config.filter && config.filter.field && config.filter.value) {
             filters.push({ field: config.filter.field, value: config.filter.value });
         }
-        if (!filters.length) {
+        if (!filters.length && !applyAnalystBounds) {
             return data;
         }
         return {
             type: 'FeatureCollection',
             features: (data.features || []).filter(function (feature) {
+                if (applyAnalystBounds && !featureWithinAnalystBounds(feature)) {
+                    return false;
+                }
                 return filters.every(function (filter) {
                     var value = feature.properties ? feature.properties[filter.field] : null;
                     return String(value == null ? '' : value) === filter.value;
@@ -3634,6 +3742,77 @@
             updateLayerStatus('currentIncidents', 'internal',
                 localIncidentFeatures.length + ' local feature' + (localIncidentFeatures.length === 1 ? '' : 's'));
         }
+    }
+
+    function currentIncidentFeatures() {
+        var state = internalLayerState.currentIncidents || {};
+        var loaded = state.data && state.data.features ? state.data.features : [];
+        return loaded.concat(localIncidentFeatures || []);
+    }
+
+    function layerFeatures(key) {
+        var state = internalLayerState[key] || {};
+        return state.data && state.data.features ? state.data.features : [];
+    }
+
+    function featureLngLat(feature) {
+        var coordinates = feature && feature.geometry ? feature.geometry.coordinates : null;
+        if (!coordinates) {
+            return null;
+        }
+        if (feature.geometry.type === 'Point' && coordinates.length >= 2) {
+            return { lng: Number(coordinates[0]), lat: Number(coordinates[1]) };
+        }
+        return null;
+    }
+
+    function emitGeoStatusMapEvent(name, detail) {
+        if (!window.CustomEvent) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent('geoStatusBoard:' + name, {
+            detail: detail || {}
+        }));
+    }
+
+    function emitCurrentIncidentsUpdated() {
+        emitGeoStatusMapEvent('currentIncidentsUpdated', {
+            features: currentIncidentFeatures()
+        });
+    }
+
+    function showFeaturePopup(feature, key, lngLat) {
+        var layer = (config.layers || {})[key] || (config.externalLayers || {})[key];
+        var popupLngLat = lngLat || featureLngLat(feature);
+        if (!layer || !popupLngLat) {
+            return;
+        }
+        new maplibregl.Popup({
+            className: 'geo-map-feature-popup',
+            maxWidth: '360px'
+        })
+            .setLngLat(popupLngLat)
+            .setHTML(popupHtml(feature, layer))
+            .addTo(map);
+        emitGeoStatusMapEvent('featureSelected', {
+            key: key,
+            feature: feature
+        });
+    }
+
+    function exposeGeoStatusBoardMapApi() {
+        window.geoStatusBoardMap = {
+            map: map,
+            config: config,
+            incidentAnalystConfig: incidentAnalystConfig,
+            getLayerFeatures: layerFeatures,
+            getCurrentIncidentFeatures: currentIncidentFeatures,
+            featureLngLat: featureLngLat,
+            showFeaturePopup: showFeaturePopup,
+            focusIncidentFeature: focusIncidentFeature,
+            setStatus: setStatus
+        };
+        emitGeoStatusMapEvent('apiReady', window.geoStatusBoardMap);
     }
 
     function normalizeLayerFilterOption(option) {
@@ -3777,6 +3956,9 @@
             data: null
         });
         updateLayerStatus(key, 'internal', '');
+        if (key === 'currentIncidents') {
+            emitCurrentIncidentsUpdated();
+        }
     }
 
     function addInternalLayer(key, geojson) {
@@ -3862,6 +4044,7 @@
         if (key === 'currentIncidents') {
             pruneLocalCreatedIncidents(rawData);
             moveLocalIncidentLayerToFront();
+            emitCurrentIncidentsUpdated();
         }
     }
 
@@ -3896,6 +4079,9 @@
                 var checkbox = document.querySelector('[data-layer-kind="internal"][data-layer-key="' + key + '"]');
                 if (!checkbox || !checkbox.checked) {
                     internalLayerState[key] = { loaded: false, loading: false, data: null };
+                    if (key === 'currentIncidents') {
+                        emitCurrentIncidentsUpdated();
+                    }
                     return;
                 }
                 addInternalLayer(key, geojson);
@@ -3911,6 +4097,9 @@
                 internalLayerState[key] = { loaded: false, loading: false, data: null };
                 updateLayerStatus(key, 'internal', 'Error');
                 setStatus(layer.title + ': ' + error.message + '. Start the local GIS stack or check GeoServer, CORS, layer names, and WFS outputFormat.', true);
+                if (key === 'currentIncidents') {
+                    emitCurrentIncidentsUpdated();
+                }
             });
     }
 
@@ -4516,6 +4705,7 @@
         center: config.center || [-106.0, 34.5],
         zoom: config.zoom || 6
     });
+    exposeGeoStatusBoardMapApi();
 
     if (config.tools.fullscreen && maplibregl.FullscreenControl) {
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
@@ -4599,6 +4789,8 @@
             }
         });
         connectGatewayUpdates();
+        emitGeoStatusMapEvent('ready', window.geoStatusBoardMap);
+        emitCurrentIncidentsUpdated();
     });
 
     map.on('click', function (event) {
@@ -4636,13 +4828,7 @@
         if (!layer) {
             return;
         }
-        new maplibregl.Popup({
-            className: 'geo-map-feature-popup',
-            maxWidth: '360px'
-        })
-            .setLngLat(event.lngLat)
-            .setHTML(popupHtml(feature, layer))
-            .addTo(map);
+        showFeaturePopup(feature, key, event.lngLat);
     });
 
     map.on('mousemove', function (event) {
@@ -4875,5 +5061,8 @@
     });
 })();
 </script>
+<g:if test="${incidentAnalystMode}">
+    <asset:javascript src="incident-analyst.js"/>
+</g:if>
 </body>
 </html>

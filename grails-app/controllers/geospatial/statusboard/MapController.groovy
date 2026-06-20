@@ -17,17 +17,30 @@ class MapController {
         Map geoaiConfig = asMap(geoConfig.geoai)
         Map gatewayConfig = asMap(geoConfig.gateway)
         Map placeSearchConfig = asMap(geoConfig.placeSearch)
+        Map incidentAnalystConfig = asMap(geoConfig.incidentAnalyst)
+        boolean incidentAnalystMode = isIncidentAnalystMode()
         Map layers = normalizeLayers(asMap(geoConfig.layers), asInteger(viewerConfig.maxFeatures, 500))
         Map externalLayers = normalizeExternalLayers(asMap(geoConfig.externalLayers))
         Map basemaps = normalizeBasemaps(asMap(viewerConfig.basemaps), viewerConfig)
         Map tools = normalizeTools(asMap(viewerConfig.tools))
         String selectedLayer = params.layer?.toString()
         String selectedBasemap = params.basemap?.toString() ?: viewerConfig.selectedBasemap?.toString()
-        List selectedCenter = normalizeCenter(params.centerLng, params.centerLat, viewerConfig.center)
-        BigDecimal selectedZoom = asBigDecimal(params.zoom, asBigDecimal(viewerConfig.zoom, new BigDecimal('6')))
+        List defaultCenter = incidentAnalystMode
+            ? [
+                asBigDecimal(incidentAnalystConfig.longitude, new BigDecimal('-105.9378')),
+                asBigDecimal(incidentAnalystConfig.latitude, new BigDecimal('35.6870'))
+            ]
+            : viewerConfig.center
+        BigDecimal defaultZoom = incidentAnalystMode
+            ? asBigDecimal(incidentAnalystConfig.zoom, new BigDecimal('7.25'))
+            : asBigDecimal(viewerConfig.zoom, new BigDecimal('6'))
+        List selectedCenter = normalizeCenter(params.centerLng, params.centerLat, defaultCenter)
+        BigDecimal selectedZoom = asBigDecimal(params.zoom, defaultZoom)
 
         if (!selectedLayer || !layers.containsKey(selectedLayer)) {
-            selectedLayer = layers.find { String key, Map layer -> layer.enabled }?.key ?: layers.keySet().find()
+            selectedLayer = incidentAnalystMode && layers.currentIncidents
+                ? 'currentIncidents'
+                : layers.find { String key, Map layer -> layer.enabled }?.key ?: layers.keySet().find()
         }
         if (!selectedBasemap || !basemaps.containsKey(selectedBasemap)) {
             selectedBasemap = basemaps.keySet().find()
@@ -38,6 +51,9 @@ class MapController {
         String selectedValue = params.value?.toString() ?: params.featureId?.toString()
         if (selectedLayer && (params.layer || selectedValue) && layers[selectedLayer] instanceof Map) {
             layers[selectedLayer].enabled = true
+        }
+        if (incidentAnalystMode && layers.currentIncidents instanceof Map) {
+            layers.currentIncidents.enabled = true
         }
 
         Map mapConfig = [
@@ -76,12 +92,31 @@ class MapController {
                 resultLimit          : asInteger(placeSearchConfig.resultLimit, 5),
                 wikipediaRadiusMeters: asInteger(placeSearchConfig.wikipediaRadiusMeters, 10000)
             ],
+            incidentAnalyst : [
+                enabled       : incidentAnalystMode,
+                supportUrl    : createLink(uri: '/incident-analyst/api/osm/support'),
+                analyzeUrl    : createLink(uri: '/incident-analyst/api/analyze'),
+                supportRadiusM: asInteger(incidentAnalystConfig.supportRadiusM, 20000),
+                maxIncidents  : asInteger(incidentAnalystConfig.maxIncidents, 20),
+                radiusKm      : asInteger(incidentAnalystConfig.radiusKm, 220),
+                bounds        : [[-107.15, 35.45], [-104.1, 37.08]],
+                reviewArea    : 'Santa Fe north to the Colorado border',
+                tableUrl      : createLink(controller: 'currentIncidents', action: 'index'),
+                boardUrl      : createLink(controller: 'currentIncidents', action: 'board'),
+                showUrlBase   : createLink(controller: 'currentIncidents', action: 'show')
+            ],
             tools           : tools,
             coordinateDigits: viewerConfig.coordinateDigits ?: 6,
             mgrsAccuracy    : viewerConfig.mgrsAccuracy ?: 5
         ]
 
         [
+            pageTitle     : incidentAnalystMode ? 'Incident Analyst' : 'Map View',
+            pageSubtitle  : incidentAnalystMode
+                ? 'Shared operational map with incident review, plotting, Wiki, LLM, table, and board workflows.'
+                : 'Geospatial view of airport, airfield, and incident status layers.',
+            incidentAnalystMode: incidentAnalystMode,
+            incidentAnalystConfigJson: JsonOutput.toJson(mapConfig.incidentAnalyst),
             mapConfigJson : JsonOutput.toJson(mapConfig),
             incidentLookupOptionsJson: JsonOutput.toJson(incidentLookupOptions()),
             layers        : layers,
@@ -99,6 +134,15 @@ class MapController {
             drawEnabled   : tools.drawing,
             mgrsEnabled   : tools.mgrs
         ]
+    }
+
+    private boolean isIncidentAnalystMode() {
+        if (asBoolean(params.incidentAnalyst, false)) {
+            return true
+        }
+
+        String requestUri = request.forwardURI ?: request.requestURI ?: ''
+        requestUri.endsWith('/incident-analyst') || requestUri.contains('/incident-analyst?')
     }
 
     private Map normalizeLayers(Map rawLayers, Integer defaultMaxFeatures = 500) {
