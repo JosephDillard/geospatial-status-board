@@ -8,6 +8,7 @@ This repository contains a status app linkable to geospatial data for dashboard 
 - Geospatial links from status records into the map view.
 - MapLibre GL JS 5.24.0 map view backed by GeoServer WFS/GeoJSON layers, including optional GeoAI detection outputs.
 - Configurable basemaps, layer selection, feature filtering, fit-to-layer, fullscreen, distance measurement, drawing, and coordinate readout with MGRS support.
+- Route-level Incident Analyst surface for focused MCP-backed incident review without loading create-incident or LLM tools on that page.
 - Temporary coordinate markers with per-marker copy, timestamp, clear, and Google Maps actions.
 - Basemap-only minimap overview with a red current-view outline that can move the main map view.
 - Editable lookup tables for dropdown text used by airport and incident workflows.
@@ -281,6 +282,25 @@ The app includes a MapLibre-based geospatial view at:
 ```text
 /GeoStatusBoard/map
 ```
+
+The focused Incident Analyst route is available at:
+
+```text
+/GeoStatusBoard/incident-analyst
+```
+
+It reuses the shared MapLibre basemap, layers, MGRS, measure, and map-control
+patterns, but loads as a route-level feature surface with only incident review,
+critical assets, risk scoring, and nearby support POI tools. The route proxies to
+the standalone incident analyst bridge by default:
+
+```text
+INCIDENT_ANALYST_BRIDGE_URL=http://127.0.0.1:8775/incident-analyst
+```
+
+That keeps the portfolio/demo repo useful while giving the main app a clean
+integration point. The bridge can later be replaced with a direct MCP client or
+in-app service without changing the browser route.
 
 GSP links can open the map with a selected layer and feature filter, for example:
 

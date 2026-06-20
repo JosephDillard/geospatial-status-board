@@ -104,6 +104,18 @@ geo:
         hubUrl: "${GEOSPATIAL_GATEWAY_HUB_URL:http://localhost:7070/hubs/geospatial-updates}"
         reconnectDelayMs: "${GEOSPATIAL_GATEWAY_RECONNECT_DELAY_MS:5000}"
         eventName: "${GEOSPATIAL_GATEWAY_LAYER_REFRESH_EVENT:layer.refresh_requested}"
+    incidentAnalyst:
+        enabled: "${INCIDENT_ANALYST_ENABLED:true}"
+        bridgeUrl: "${INCIDENT_ANALYST_BRIDGE_URL:http://127.0.0.1:8775/incident-analyst}"
+        requestTimeoutMs: "${INCIDENT_ANALYST_REQUEST_TIMEOUT_MS:8000}"
+        latitude: 35.6870
+        longitude: -105.9378
+        radiusKm: 220
+        supportRadiusM: 20000
+        maxIncidents: 20
+        minZoom: 6
+        maxZoom: 14
+        zoom: 7.25
     viewer:
         provider: maplibre
         mapLibreJsUrl: https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js
