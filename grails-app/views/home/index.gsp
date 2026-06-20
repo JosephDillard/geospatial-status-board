@@ -48,18 +48,32 @@
 
         <div class="geospatial-status-board-link-grid geospatial-status-board-link-grid-compact">
             <g:each var="link" in="${apiLinks}">
-                <g:link class="geospatial-status-board-hub-link geospatial-status-board-api-link" uri="${link.uri}">
-                    <span>${link.label}</span>
-                    <small>${link.description}</small>
-                    <code>${link.uri}</code>
-                </g:link>
+                <g:if test="${link.url}">
+                    <a class="geospatial-status-board-hub-link geospatial-status-board-api-link"
+                       href="${link.url}"
+                       target="_blank"
+                       rel="noopener">
+                        <span>${link.label}</span>
+                        <small>${link.description}</small>
+                        <strong class="geospatial-status-board-api-method">${link.method ?: 'GET'}</strong>
+                        <code>${link.url}</code>
+                    </a>
+                </g:if>
+                <g:else>
+                    <g:link class="geospatial-status-board-hub-link geospatial-status-board-api-link" uri="${link.uri}">
+                        <span>${link.label}</span>
+                        <small>${link.description}</small>
+                        <strong class="geospatial-status-board-api-method">${link.method ?: 'GET'}</strong>
+                        <code>${link.uri}</code>
+                    </g:link>
+                </g:else>
             </g:each>
         </div>
     </section>
 
     <section class="geospatial-status-board-section">
         <div class="geospatial-status-board-section-title">
-            <h2>Integrations</h2>
+            <h2>External Pages &amp; Consoles</h2>
         </div>
 
         <g:if test="${integrationLinks}">

@@ -225,6 +225,18 @@
     white-space: normal;
 }
 
+.geospatial-status-board-api-method {
+    background: #17374a;
+    border-radius: 4px;
+    color: #ffffff;
+    display: inline-block;
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    line-height: 1;
+    margin-top: 0.75rem;
+    padding: 0.32rem 0.42rem;
+}
+
 .geospatial-status-board-api-link {
     border-left: 4px solid #1f7a8c;
 }
