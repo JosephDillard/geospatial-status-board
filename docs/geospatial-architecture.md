@@ -5,16 +5,16 @@ The status app uses a split responsibility model for geospatial data:
 - Grails and GORM continue to read and write status attributes in the operational tables.
 - PostGIS stores geometry in `geom` columns on those same operational tables.
 - GeoServer publishes those tables as WFS layers with GeoJSON output.
-- MapLibre GL JS 5.24.0 renders the GeoJSON layers in the browser at `/GeoStatusBoard/map`.
+- MapLibre GL JS 5.24.0 renders the GeoJSON layers in the browser at `/GeoStatusBoard/map` and the shared Incident Analyst route at `/GeoStatusBoard/incident-analyst`.
 
 This keeps the existing Grails domains stable while allowing open source GIS services to own spatial querying and map delivery.
 
 ## Repository Map
 
 The geospatial architecture sits in the status-board repo because the Grails app owns
-the user-facing map, GeoServer layer configuration, and health indicators. The
-companion GeoAI repo owns the workflow API, COG processing, model inference, and
-PostGIS output loading used by that map.
+the user-facing map, Incident Analyst route, GeoServer layer configuration, and
+health indicators. The companion GeoAI repo owns the workflow API, COG
+processing, model inference, and PostGIS output loading used by that map.
 
 - [Emergency Management repo](https://github.com/JosephDillard/geospatial-status-board)
 - [Emergency Management README](../README.md)
@@ -78,11 +78,22 @@ http://localhost:8081/geoserver/gsb/ows?service=WFS&version=1.0.0&request=GetFea
 
 ## Application Map View
 
-The in-app map view is:
+The primary in-app map view is:
 
 ```text
 /GeoStatusBoard/map
 ```
+
+The focused Incident Analyst entry point is:
+
+```text
+/GeoStatusBoard/incident-analyst
+```
+
+The Incident Analyst route forwards into the same `map/index.gsp` implementation
+with analyst mode enabled. It defaults to the Current Incidents layer, centers on
+northern New Mexico, filters the review area toward Santa Fe and the Colorado
+border, and adds the right-side incident review panel.
 
 Existing GSP links can open a filtered layer by passing:
 
@@ -90,12 +101,20 @@ Existing GSP links can open a filtered layer by passing:
 /GeoStatusBoard/map?layer=airportStatus&field=site_name&value=Kirtland%20AFB
 ```
 
-The map page builds a WFS request to GeoServer, loads GeoJSON into MapLibre, adds point, line, and polygon layers, fits to returned features, and displays feature attributes in a popup. Coordinate copy mode can leave multiple temporary coordinate markers on the map; each marker popup shows MGRS, Lat/Lon, DMS, timestamp, copy, Google Maps, and clear actions.
+The map page builds a WFS request to GeoServer, loads GeoJSON into MapLibre, adds point, line, and polygon layers, fits to returned features, and displays feature attributes in a popup. The same layer drawer, basemap selector, incident plotting, LLM request panel, Wiki/GeoNames place search, response-support lookup, measurement tools, MGRS conversion, and incident popups are available from both routes.
+
+Coordinate copy mode can leave multiple temporary coordinate markers on the map;
+each marker popup shows MGRS, Lat/Lon, DMS, timestamp, copy, Google Maps, and
+clear actions. Airport and airfield point layers use the airport symbol set,
+current and archived incident layers use the FEMA-style incident symbol set, and
+the Wiki/GeoNames and response-support tools draw their own temporary result
+markers above the operational layers.
 
 The map also creates a basemap-only minimap using a second lightweight MapLibre
 instance. The minimap follows the selected basemap, draws a red outline around
-the current main-map view, and lets the user click or drag the overview to move
-the main map without duplicating operational WFS layers.
+the current main-map view, opens with the main map, can be minimized, and lets
+the user click or drag the overview to move the main map without duplicating
+operational WFS layers.
 
 ## Configuration
 
@@ -109,6 +128,9 @@ Important keys:
 
 - `geo.geoserver.wfsUrl` - GeoServer WFS endpoint.
 - `geo.geoai.apiUrl` and `geo.geoai.healthUrl` - GeoAI workflow API endpoint and health endpoint.
+- `geo.gateway.*` - companion Geospatial Data Gateway health and SignalR refresh configuration.
+- `geo.incidentAnalyst.*` - analyst route center, filter radius, support lookup bridge, timeout, and result radius.
+- `geo.placeSearch.*` - Wiki/GeoNames lookup settings, including optional GeoNames username and result limits.
 - `geo.health.requestTimeoutMs` - timeout for map service health checks.
 - `geo.geoserver.defaultSrs` - Target spatial reference, default `EPSG:4326`.
 - `geo.viewer.mapLibreJsUrl` and `geo.viewer.mapLibreCssUrl` - MapLibre assets, currently pinned to `maplibre-gl@5.24.0`.
@@ -122,10 +144,45 @@ from the local COG inventory in the GeoAI repo.
 
 ## Map Service Health
 
-The map page shows compact health boxes for GeoServer, PostGIS, and the GeoAI API.
+The map page shows compact health boxes for GeoServer, PostGIS, GeoAI, and the
+Geospatial Data Gateway.
 The browser calls the same-origin Grails health endpoint, and the server checks the
-configured dependencies. If GeoAI is unavailable, the map still loads normally and
-only the GeoAI indicator is marked down.
+configured dependencies. If GeoAI or the gateway is unavailable, the map still
+loads normally and only the affected indicator is marked down.
+
+## Incident Analyst and Response Support
+
+The Incident Analyst route is intentionally a route-level mode on the shared map,
+not a second map implementation. The browser still receives the same layer
+configuration, basemaps, map tools, incident popups, and incident plotting logic.
+Analyst mode adds a right-side review panel that summarizes current incidents,
+shows severity and asset-criticality scoring, and links back to the table and
+Kanban review views.
+
+Response-support lookup uses same-origin Grails proxy routes:
+
+- `GET /GeoStatusBoard/incident-analyst/api/analyze` forwards incident analysis requests to the bridge.
+- `GET /GeoStatusBoard/incident-analyst/api/osm/support` forwards response-support lookup requests to the bridge.
+
+The bridge target is configured with:
+
+```text
+INCIDENT_ANALYST_BRIDGE_URL=http://127.0.0.1:8775/incident-analyst
+INCIDENT_ANALYST_REQUEST_TIMEOUT_MS=8000
+```
+
+The support tool is user-facing as response support. Internally, some DOM ids and
+config keys still use `supportPoi`; treat that as an implementation detail when
+working in the map code. When OpenStreetMap is slow or unreachable, the map
+shows local response-support fallback records where available instead of leaving
+the user with a blank result.
+
+## Wiki/GeoNames Place Search
+
+The Wiki/GeoNames tool lets an analyst click the map and inspect nearby named
+places and Wikipedia context. Configure `GEONAMES_USERNAME` or
+`geo.placeSearch.geonamesUsername` to prefer GeoNames nearby Wikipedia results.
+Without a GeoNames username, the browser falls back to Wikipedia GeoSearch.
 
 ## GeoAI Map Requests
 
@@ -142,3 +199,19 @@ center, zoom, selected layer, and any drawn AOI GeoJSON. Drawn AOI polygons are
 normalized before submission, including selected or active draw features and
 closed polygon rings, so valid polygons are sent as `map_context.aoi_geojson`
 instead of the workflow relying only on the current map-view bbox.
+
+## Data Gateway Refresh
+
+The companion Geospatial Data Gateway can publish local SignalR-style layer
+refresh events to the map. Enable or tune it with:
+
+```text
+GEOSPATIAL_GATEWAY_SIGNALR_ENABLED=true
+GEOSPATIAL_GATEWAY_HUB_URL=http://localhost:7070/hubs/geospatial-updates
+GEOSPATIAL_GATEWAY_HEALTH_URL=http://localhost:7070/health
+GEOSPATIAL_GATEWAY_LAYER_REFRESH_EVENT=layer.refresh_requested
+```
+
+The hub page also links to the configured gateway hub and health endpoint so the
+dashboard can act as a review surface for the app, APIs, GeoServer, GeoAI, the
+gateway, and the Incident Analyst bridge.

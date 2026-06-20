@@ -8,9 +8,11 @@ This repository contains a status app linkable to geospatial data for dashboard 
 - Geospatial links from status records into the map view.
 - MapLibre GL JS 5.24.0 map view backed by GeoServer WFS/GeoJSON layers, including optional GeoAI detection outputs.
 - Configurable basemaps, layer selection, feature filtering, fit-to-layer, fullscreen, distance measurement, drawing, and coordinate readout with MGRS support.
-- Route-level Incident Analyst surface that reuses the shared map, incident plotting, Wiki, LLM, popups, table, and Kanban workflows with an added review panel.
+- Route-level Incident Analyst surface that reuses the shared map, incident plotting, Wiki/GeoNames, LLM, response support, popups, table, and Kanban workflows with an added review panel.
+- Shared response-support lookup that uses the Incident Analyst bridge for OpenStreetMap support search and local fallback records.
 - Temporary coordinate markers with per-marker copy, timestamp, clear, and Google Maps actions.
-- Basemap-only minimap overview with a red current-view outline that can move the main map view.
+- Basemap-only minimap overview with a red current-view outline, a minimize button, and click/drag navigation for the main map view.
+- Custom route favicons and map symbols for airport, incident, Wiki/GeoNames, and response-support markers.
 - Editable lookup tables for dropdown text used by airport and incident workflows.
 - Development bootstrap data for New Mexico airports and airfields, current status, runway surface condition, support assets, utilities, current incidents, and archived incidents.
 - Single deployable WAR with the application served from `/GeoStatusBoard`.
@@ -125,6 +127,7 @@ PostGIS:   localhost:5432/geostatusboard
 GeoServer: http://localhost:8081/geoserver
 WFS:       http://localhost:8081/geoserver/gsb/ows
 GeoAI:     http://localhost:8000
+Gateway:   http://localhost:7070
 ```
 
 Default local credentials:
@@ -291,22 +294,32 @@ The focused Incident Analyst route is available at:
 
 It reuses the shared MapLibre map view instead of carrying a duplicate map
 implementation. The same layer drawer, basemap selector, incident plotting,
-Wiki search, LLM request panel, MGRS/coordinate tools, measurement, incident
-symbology, and incident popups are available on both map entry points. The
-analyst route defaults to the Current Incidents layer, filters that layer to the
-Santa Fe-to-Colorado-border review area, and adds a right-side review panel with
-risk scoring, table/Kanban links, and nearby support lookup.
+Wiki/GeoNames place exploration, LLM request panel, response-support lookup,
+MGRS/coordinate tools, measurement, incident symbology, and incident popups are
+available on both map entry points. The analyst route defaults to the Current
+Incidents layer, filters that layer to the Santa Fe-to-Colorado-border review
+area, and adds a right-side review panel with risk scoring, table/Kanban links,
+and nearby response support.
 
-Nearby support lookup proxies to the standalone incident analyst bridge by
+Response-support lookup proxies to the standalone incident analyst bridge by
 default:
 
 ```text
 INCIDENT_ANALYST_BRIDGE_URL=http://127.0.0.1:8775/incident-analyst
 ```
 
+The map calls the same-origin proxy below, which forwards to the bridge and
+keeps browser behavior consistent on both map routes:
+
+```text
+GET /GeoStatusBoard/incident-analyst/api/osm/support?latitude=35.687&longitude=-105.938&radius_m=20000
+```
+
 That keeps the portfolio/demo repo useful while giving the main app a clean
 integration point. The bridge can later be replaced with a direct MCP client or
-in-app service without changing the browser route.
+in-app service without changing the browser route. If OpenStreetMap times out or
+is unavailable, the tool shows local response-support fallback records when any
+are near the selected point.
 
 GSP links can open the map with a selected layer and feature filter, for example:
 
@@ -314,7 +327,23 @@ GSP links can open the map with a selected layer and feature filter, for example
 /GeoStatusBoard/map?layer=airportStatus&field=site_name&value=Kirtland%20AFB
 ```
 
-The map configuration lives under `geo.viewer`, `geo.geoserver`, and `geo.layers` in `grails-app/conf/application.yml`. MapLibre GL JS and CSS are pinned to `maplibre-gl@5.24.0` through `geo.viewer.mapLibreJsUrl` and `geo.viewer.mapLibreCssUrl`; the controller fallback uses the same exact version. The current default basemaps are CARTO Dark Blue and OpenStreetMap, and configured layers include airport status, current airfield status, airfield surface status, NAVAIDs, engineer assets, fire fighting assets, utility status, GeoAI COG footprints, GeoAI detections, current incidents, and incident archive.
+The map configuration lives under `geo.viewer`, `geo.geoserver`, `geo.placeSearch`,
+`geo.incidentAnalyst`, and `geo.layers` in `grails-app/conf/application.yml`.
+MapLibre GL JS and CSS are pinned to `maplibre-gl@5.24.0` through
+`geo.viewer.mapLibreJsUrl` and `geo.viewer.mapLibreCssUrl`; the controller
+fallback uses the same exact version. The current default basemaps are CARTO
+Dark Blue and OpenStreetMap, and configured layers include airport status,
+current airfield status, airfield surface status, NAVAIDs, engineer assets,
+fire fighting assets, utility status, GeoAI COG footprints, GeoAI detections,
+current incidents, and incident archive. Airport and airfield point layers use
+the airport symbol set, current and archived incident layers use the FEMA-style
+incident symbol set, and the Wiki/GeoNames and response-support tools draw their
+own result markers above the operational layers.
+
+Wiki/GeoNames place exploration works directly from the map. Set
+`GEONAMES_USERNAME` or `geo.placeSearch.geonamesUsername` to use GeoNames nearby
+Wikipedia first; when no GeoNames username is configured, the browser falls back
+to the public Wikipedia GeoSearch API.
 
 Coordinate copy mode leaves temporary coordinate markers on the map. Multiple
 markers can be kept at once; clicking a marker reselects that coordinate,
@@ -322,10 +351,10 @@ updates the coordinate readout, and opens an attribute popup with MGRS, Lat/Lon,
 DMS, timestamp, copy, Google Maps, and clear actions. The small marker button in
 the coordinate readout clears the active marker without clearing the rest.
 
-The map includes a basemap-only minimap overview. The minimap draws a red outline
-around the current main-map view, follows basemap changes, and can be clicked or
-dragged to move the main map without loading operational WFS layers into the
-overview.
+The map includes a basemap-only minimap overview. The minimap opens with the map,
+draws a red outline around the current main-map view, follows basemap changes,
+can be minimized, and can be clicked or dragged to move the main map without
+loading operational WFS layers into the overview.
 
 The map also includes a compact GeoAI request panel. It loads model choices from the
 GeoAI API through same-origin Grails proxy routes, submits the selected model,
@@ -354,8 +383,9 @@ adds a job filter under that layer when `job_id` values are present. The COG
 inventory footprint table is `public.geoai_cog_footprints` and is exposed as
 `COG Footprints`.
 
-The map can also subscribe to the companion Geospatial Data Gateway's local SignalR
-hub and refresh a configured WFS layer when the gateway broadcasts
+The hub page and map health strip include the companion Geospatial Data Gateway
+next to GeoServer, PostGIS, and GeoAI. The map can subscribe to the gateway's
+local SignalR hub and refresh a configured WFS layer when the gateway broadcasts
 `layer.refresh_requested`. Configure it with:
 
 ```text
@@ -397,6 +427,11 @@ See:
 - Added development sample geometries for the bootstrapped New Mexico records.
 - Added editable lookup tables, richer New Mexico bootstrap data, and MapLibre map tools for basemaps, layers, feature filtering, measurement, drawing, fullscreen, MGRS, coordinate readout, temporary coordinate markers, and a basemap-only minimap.
 - Added top-nav health indicators and a MapLibre GeoAI request panel for submitting map-context jobs with normalized drawn AOIs to the GeoAI workflow API.
+- Added a shared Incident Analyst map route with the same plotting, LLM, Wiki/GeoNames, response-support, layer, popup, table, and Kanban workflows as the main map.
+- Added response-support lookup through the Incident Analyst proxy, with OpenStreetMap lookup and local fallback messaging.
+- Added custom map icons for airports, incident layers, Wiki/GeoNames results, and response-support results.
+- Added custom route favicons and a minimizable overview map that opens with the main map.
+- Added Data Gateway health/link visibility on the hub and map service status surfaces.
 - Pinned MapLibre GL JS/CSS assets to stable `maplibre-gl@5.24.0`.
 
 ## Data Sources
