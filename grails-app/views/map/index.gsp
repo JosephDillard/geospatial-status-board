@@ -164,10 +164,17 @@
                 <button id="geo-place-search-toggle"
                         type="button"
                         class="geo-map-square-button geo-place-search-toggle"
-                        aria-label="Search nearby Wikipedia places"
+                        aria-label="Explore nearby GeoNames and Wikipedia places"
                         aria-pressed="false"
-                        title="Search nearby Wikipedia places">
-                    Wiki
+                        title="Explore nearby GeoNames and Wikipedia places">
+                    <svg class="geo-tool-svg" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3H10a3 3 0 0 1 3 3v15a3 3 0 0 0-3-3H5.5A2.5 2.5 0 0 1 3 15.5z"/>
+                        <path d="M21 5.5A2.5 2.5 0 0 0 18.5 3H14a3 3 0 0 0-3 3v15a3 3 0 0 1 3-3h4.5a2.5 2.5 0 0 0 2.5-2.5z"/>
+                        <path d="M17 8h1"/>
+                        <path d="M16 12h2"/>
+                    </svg>
+                    <span class="sr-only">Explore nearby GeoNames and Wikipedia places</span>
                 </button>
                 <button id="geo-place-search-clear"
                         type="button"
@@ -182,16 +189,27 @@
                 <button id="geo-poi-search-toggle"
                         type="button"
                         class="geo-map-square-button geo-poi-search-toggle"
-                        aria-label="Find nearby support POIs"
+                        aria-label="Find nearby response support"
                         aria-pressed="false"
-                        title="Find nearby support POIs">
-                    POI
+                        title="Find nearby response support">
+                    <svg class="geo-tool-svg" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M7 18v-6a5 5 0 0 1 10 0v6"/>
+                        <path d="M5 21h14"/>
+                        <path d="M8 21v-3h8v3"/>
+                        <path d="M4 12H2"/>
+                        <path d="M22 12h-2"/>
+                        <path d="M5.5 5.5 4 4"/>
+                        <path d="M18.5 5.5 20 4"/>
+                        <path d="M10 12h4"/>
+                    </svg>
+                    <span class="sr-only">Find nearby response support</span>
                 </button>
                 <button id="geo-poi-search-clear"
                         type="button"
                         class="geo-poi-search-clear"
-                        aria-label="Clear support POI results"
-                        title="Clear support POI results"
+                        aria-label="Clear response support results"
+                        title="Clear response support results"
                         hidden>
                     Clear
                 </button>
@@ -2343,29 +2361,18 @@
         if (!map.getLayer(placeSearchResultLayerId)) {
             map.addLayer({
                 id: placeSearchResultLayerId,
-                type: 'circle',
+                type: 'symbol',
                 source: placeSearchResultSourceId,
-                paint: {
-                    'circle-radius': [
+                layout: {
+                    'icon-image': [
                         'case',
                         ['boolean', ['get', 'active'], false],
-                        mapPointRadius(10),
-                        mapPointRadius(7)
+                        'map-knowledge-active',
+                        'map-knowledge'
                     ],
-                    'circle-color': [
-                        'case',
-                        ['boolean', ['get', 'active'], false],
-                        '#facc15',
-                        '#38bdf8'
-                    ],
-                    'circle-opacity': 0.92,
-                    'circle-stroke-color': '#031525',
-                    'circle-stroke-width': [
-                        'case',
-                        ['boolean', ['get', 'active'], false],
-                        3,
-                        2
-                    ]
+                    'icon-size': 0.95,
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true
                 }
             });
         }
@@ -2635,10 +2642,31 @@
         });
     }
 
+    function supportPoiSourceLabel(payload) {
+        var source = String((payload || {}).source || '').trim();
+        if ((payload || {}).status === 'fallback' || source === 'local_fallback') {
+            return 'Local response support fallback';
+        }
+        if (source.toLowerCase().indexOf('openstreetmap') >= 0 || source.toLowerCase() === 'osm') {
+            return 'OpenStreetMap support';
+        }
+        return source || 'Response support';
+    }
+
+    function supportPoiMessage(payload, resultCount) {
+        var message = String((payload || {}).message || '').trim();
+        if ((payload || {}).status === 'fallback' || /read operation timed out/i.test(message)) {
+            return resultCount
+                ? 'OpenStreetMap timed out; showing local response support fallback.'
+                : 'OpenStreetMap timed out; no local response support points were found nearby.';
+        }
+        return message;
+    }
+
     function fetchSupportPoiResults(lngLat) {
         var url = supportPoiLookupUrl(lngLat);
         if (!url) {
-            return Promise.reject(new Error('Support POI URL is not configured.'));
+            return Promise.reject(new Error('Response support URL is not configured.'));
         }
 
         return fetch(url, {
@@ -2648,14 +2676,15 @@
             }
         }).then(function (response) {
             return response.json().then(function (payload) {
+                var results = normalizeSupportPoiResults(payload);
                 if (!response.ok) {
-                    throw new Error(payload.message || payload.error || 'Support lookup returned HTTP ' + response.status);
+                    throw new Error(payload.message || payload.error || 'Response support lookup returned HTTP ' + response.status);
                 }
                 return {
-                    source: payload.source || 'Support POI',
-                    message: payload.message || '',
+                    source: supportPoiSourceLabel(payload),
+                    message: supportPoiMessage(payload, results.length),
                     status: payload.status || 'ok',
-                    results: normalizeSupportPoiResults(payload)
+                    results: results
                 };
             });
         });
@@ -2715,29 +2744,18 @@
         if (!map.getLayer(supportPoiResultLayerId)) {
             map.addLayer({
                 id: supportPoiResultLayerId,
-                type: 'circle',
+                type: 'symbol',
                 source: supportPoiResultSourceId,
-                paint: {
-                    'circle-radius': [
+                layout: {
+                    'icon-image': [
                         'case',
                         ['boolean', ['get', 'active'], false],
-                        mapPointRadius(10),
-                        mapPointRadius(7)
+                        'map-support-active',
+                        'map-support'
                     ],
-                    'circle-color': [
-                        'case',
-                        ['boolean', ['get', 'active'], false],
-                        '#facc15',
-                        '#ea580c'
-                    ],
-                    'circle-opacity': 0.92,
-                    'circle-stroke-color': '#fff7ed',
-                    'circle-stroke-width': [
-                        'case',
-                        ['boolean', ['get', 'active'], false],
-                        3,
-                        2
-                    ]
+                    'icon-size': 0.95,
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true
                 }
             });
         }
@@ -2801,7 +2819,7 @@
         updateSupportPoiResultSource();
         removeActiveSupportPoiPopup();
         if (!silent) {
-            setStatus('Support POI results cleared.');
+            setStatus('Response support results cleared.');
         }
     }
 
@@ -2829,8 +2847,8 @@
         var results = (payload.results || []).slice(0, supportPoiLimit());
         var note = payload.message ? '<p class="geo-place-search-empty">' + escapeHtml(payload.message) + '</p>' : '';
         if (!results.length) {
-            return '<div class="geo-map-popup-title">Nearby Support POIs</div>' +
-                '<p class="geo-place-search-empty">No nearby support POIs found.</p>' + note;
+            return '<div class="geo-map-popup-title">Nearby Response Support</div>' +
+                '<p class="geo-place-search-empty">No nearby response support found.</p>' + note;
         }
 
         var items = results.map(function (result, index) {
@@ -2843,8 +2861,8 @@
                 '</li>';
         }).join('');
 
-        return '<div class="geo-map-popup-title">Nearby Support POIs</div>' +
-            '<div class="geo-place-search-meta">' + escapeHtml(payload.source || 'Support POI') +
+        return '<div class="geo-map-popup-title">Nearby Response Support</div>' +
+            '<div class="geo-place-search-meta">' + escapeHtml(payload.source || 'Response support') +
             ' near ' + lngLat.lat.toFixed(5) + ', ' + lngLat.lng.toFixed(5) + '</div>' +
             note +
             '<ol class="geo-place-search-results">' + items + '</ol>';
@@ -2902,16 +2920,16 @@
             setGeoAiPanelOpen(false);
             map.getCanvas().style.cursor = 'help';
             if (supportPoiResults.length && restoreSupportPoiPopup()) {
-                setStatus('Support POI results shown. Click a map location to search again.');
+                setStatus('Response support results shown. Click a map location to search again.');
             } else {
-                setStatus('Support POI search ready. Click a map location to find nearby support.');
+                setStatus('Response support search ready. Click a map location to find nearby support.');
             }
         } else if (map) {
             supportPoiRequestSeq += 1;
             closeSupportPoiPopup();
             map.getCanvas().style.cursor = '';
             if (supportPoiResults.length) {
-                setStatus('Support POI search paused. Results remain until cleared.');
+                setStatus('Response support search paused. Results remain until cleared.');
             }
         }
     }
@@ -2924,7 +2942,7 @@
         lastSupportPoiPayload = null;
         var popup = createSupportPoiPopup(
             searchLngLat,
-            '<div class="geo-map-popup-title">Nearby Support POIs</div><p class="geo-place-search-empty">Searching...</p>'
+            '<div class="geo-map-popup-title">Nearby Response Support</div><p class="geo-place-search-empty">Searching...</p>'
         );
 
         fetchSupportPoiResults(searchLngLat)
@@ -2933,7 +2951,7 @@
                     return;
                 }
                 lastSupportPoiPayload = {
-                    source: payload.source || 'Support POI',
+                    source: payload.source || 'Response support',
                     message: payload.message || '',
                     results: (payload.results || []).slice(0, supportPoiLimit())
                 };
@@ -2942,22 +2960,26 @@
                     popup.setHTML(supportPoiPopupHtml(lastSupportPoiPayload, searchLngLat));
                     bindSupportPoiPopupInteractions(popup);
                 }
-                setStatus('Support POI search complete.');
+                setStatus(payload.status === 'fallback' && (payload.results || []).length
+                    ? 'Response support fallback loaded.'
+                    : (payload.status === 'fallback'
+                        ? 'Response support fallback found no nearby points.'
+                        : 'Response support search complete.'));
             })
             .catch(function (error) {
                 if (requestId !== supportPoiRequestSeq) {
                     return;
                 }
                 lastSupportPoiPayload = {
-                    source: 'Support POI',
-                    message: error.message || 'Support lookup failed',
+                    source: 'Response support',
+                    message: error.message || 'Response support lookup failed',
                     results: []
                 };
                 setSupportPoiResults([]);
                 if (activeSupportPoiPopup === popup) {
                     popup.setHTML(supportPoiPopupHtml(lastSupportPoiPayload, searchLngLat));
                 }
-                setStatus('Support POI search failed: ' + (error.message || 'Support lookup failed'), true);
+                setStatus('Response support search failed: ' + (error.message || 'Response support lookup failed'), true);
             });
     }
 
@@ -3658,6 +3680,146 @@
         ctx.stroke();
         drawIncidentGlyph(ctx, id, color);
         return ctx.getImageData(0, 0, size, size);
+    }
+
+    function drawMapGlyph(ctx, id, color) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 4;
+
+        if (id === 'map-airport') {
+            ctx.beginPath();
+            ctx.moveTo(36, 14);
+            ctx.lineTo(42, 35);
+            ctx.lineTo(58, 43);
+            ctx.lineTo(58, 49);
+            ctx.lineTo(42, 46);
+            ctx.lineTo(38, 59);
+            ctx.lineTo(34, 59);
+            ctx.lineTo(30, 46);
+            ctx.lineTo(14, 49);
+            ctx.lineTo(14, 43);
+            ctx.lineTo(30, 35);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = color;
+            ctx.fillRect(34, 24, 4, 18);
+        } else if (id.indexOf('map-knowledge') === 0) {
+            ctx.beginPath();
+            ctx.moveTo(17, 20);
+            ctx.lineTo(30, 20);
+            ctx.quadraticCurveTo(36, 20, 36, 27);
+            ctx.lineTo(36, 55);
+            ctx.quadraticCurveTo(32, 49, 25, 49);
+            ctx.lineTo(17, 49);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(55, 20);
+            ctx.lineTo(42, 20);
+            ctx.quadraticCurveTo(36, 20, 36, 27);
+            ctx.lineTo(36, 55);
+            ctx.quadraticCurveTo(40, 49, 47, 49);
+            ctx.lineTo(55, 49);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(44, 30);
+            ctx.lineTo(51, 30);
+            ctx.moveTo(44, 38);
+            ctx.lineTo(51, 38);
+            ctx.stroke();
+        } else if (id.indexOf('map-support') === 0) {
+            ctx.beginPath();
+            ctx.moveTo(22, 48);
+            ctx.lineTo(22, 32);
+            ctx.quadraticCurveTo(22, 18, 36, 18);
+            ctx.quadraticCurveTo(50, 18, 50, 32);
+            ctx.lineTo(50, 48);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillRect(19, 50, 34, 6);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(29, 36);
+            ctx.lineTo(43, 36);
+            ctx.moveTo(36, 29);
+            ctx.lineTo(36, 43);
+            ctx.stroke();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(14, 34);
+            ctx.lineTo(8, 34);
+            ctx.moveTo(58, 34);
+            ctx.lineTo(64, 34);
+            ctx.moveTo(22, 18);
+            ctx.lineTo(17, 13);
+            ctx.moveTo(50, 18);
+            ctx.lineTo(55, 13);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    function createMapIconImage(id, color, shape) {
+        var canvas = document.createElement('canvas');
+        var size = 72;
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, size, size);
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.36)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 4;
+        ctx.fillStyle = color;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+
+        ctx.beginPath();
+        if (shape === 'diamond') {
+            ctx.moveTo(36, 4);
+            ctx.lineTo(68, 36);
+            ctx.lineTo(36, 68);
+            ctx.lineTo(4, 36);
+            ctx.closePath();
+        } else {
+            ctx.arc(36, 36, 30, 0, Math.PI * 2);
+        }
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.stroke();
+        drawMapGlyph(ctx, id, color);
+        return ctx.getImageData(0, 0, size, size);
+    }
+
+    function addMapIconImage(id, color, shape) {
+        if (map.hasImage && map.hasImage(id)) {
+            return;
+        }
+        map.addImage(id, createMapIconImage(id, color, shape), { pixelRatio: 2 });
+    }
+
+    function registerMapIcons() {
+        addMapIconImage('map-airport', '#2563eb', 'circle');
+        addMapIconImage('map-knowledge', '#0ea5e9', 'circle');
+        addMapIconImage('map-knowledge-active', '#facc15', 'circle');
+        addMapIconImage('map-support', '#ea580c', 'circle');
+        addMapIconImage('map-support-active', '#facc15', 'circle');
+    }
+
+    function layerIconImage(layer) {
+        if ((layer || {}).iconSet === 'airport') {
+            return 'map-airport';
+        }
+        return (layer || {}).iconImage || '';
     }
 
     function addIncidentImage(id, color, shape) {
@@ -4437,6 +4599,19 @@
                     'icon-ignore-placement': true
                 }
             }, firstMeasureLayerId());
+        } else if (layerIconImage(layer)) {
+            map.addLayer({
+                id: ids[2],
+                type: 'symbol',
+                source: sourceId,
+                filter: ['==', '$type', 'Point'],
+                layout: {
+                    'icon-image': layerIconImage(layer),
+                    'icon-size': Number(layer.iconSize == null ? 0.95 : layer.iconSize),
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true
+                }
+            }, firstMeasureLayerId());
         } else {
             map.addLayer({
                 id: ids[2],
@@ -5166,9 +5341,10 @@
         }, 0);
         initMiniMap();
         ensureMeasureLayers();
+        registerMapIcons();
+        registerIncidentIcons();
         ensurePlaceSearchResultLayer();
         ensureSupportPoiResultLayer();
-        registerIncidentIcons();
         ensureIncidentOverlayLayers();
 
         if (config.tools.drawing && window.MapboxDraw) {

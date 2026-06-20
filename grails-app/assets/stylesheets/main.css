@@ -1533,6 +1533,12 @@ img.grails-logo {
     width: 42px;
 }
 
+.geo-tool-svg {
+    height: 22px;
+    pointer-events: none;
+    width: 22px;
+}
+
 .geo-zoom-control .geo-map-square-button {
     border: 0;
     border-radius: 0;
@@ -1713,16 +1719,6 @@ img.grails-logo {
 
 .geo-ai-toggle {
     font-size: 0.78rem;
-    letter-spacing: 0;
-}
-
-.geo-place-search-toggle {
-    font-size: 0.7rem;
-    letter-spacing: 0;
-}
-
-.geo-poi-search-toggle {
-    font-size: 0.7rem;
     letter-spacing: 0;
 }
 

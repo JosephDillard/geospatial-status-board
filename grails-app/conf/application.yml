@@ -293,6 +293,7 @@ geo:
             labelField: site_name
             geometryType: Geometry
             color: '#2563eb'
+            iconSet: airport
         currentSIT:
             title: Current Airfield Status
             category: Airport
@@ -301,6 +302,7 @@ geo:
             labelField: site_name
             geometryType: Geometry
             color: '#0f766e'
+            iconSet: airport
         airfieldSurfaceStatus:
             title: Airfield Surface Status
             category: Airport

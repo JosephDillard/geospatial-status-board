@@ -31,7 +31,7 @@ class HomeController {
     private List<Map> appLinks() {
         [
             [label: 'Home Dashboard', controller: 'home', action: 'index', description: 'Main launch hub for application pages, APIs, and service consoles.'],
-            [label: 'Map View', controller: 'map', action: 'index', description: 'Shared operational map with layers, plotting, Wiki, LLM, POI, and MGRS tools.'],
+            [label: 'Map View', controller: 'map', action: 'index', description: 'Shared operational map with layers, plotting, Wiki/GeoNames, LLM, response support, and MGRS tools.'],
             [label: 'Incident Analyst', uri: '/incident-analyst', description: 'Focused incident review map using the same map tools with risk and support review.'],
             [label: 'Current Incidents Table', controller: 'currentIncidents', action: 'index', description: 'Table review and filtering for active incident records.'],
             [label: 'Incident Kanban', controller: 'currentIncidents', action: 'board', description: 'Workflow board for moving incidents through review states.'],
@@ -73,7 +73,7 @@ class HomeController {
             [label: 'GeoAI Options Proxy', method: 'GET', uri: '/geoAi/options', description: 'Status-board proxy for available GeoAI models and workflows.'],
             [label: 'GeoAI Jobs Proxy', method: 'GET', uri: '/geoAi/jobs', description: 'Status-board proxy for known GeoAI detection jobs.'],
             [label: 'Incident Analysis Proxy', method: 'GET', uri: '/incident-analyst/api/analyze?latitude=35.687&longitude=-105.938&radius_km=220', description: 'Status-board proxy into the Incident Analyst MCP bridge analysis workflow.'],
-            [label: 'Support POI Proxy', method: 'GET', uri: '/incident-analyst/api/osm/support?latitude=35.687&longitude=-105.938&radius_m=20000', description: 'OpenStreetMap/local fallback support lookup used by the POI map tool.'],
+            [label: 'Response Support Proxy', method: 'GET', uri: '/incident-analyst/api/osm/support?latitude=35.687&longitude=-105.938&radius_m=20000', description: 'OpenStreetMap/local fallback support lookup used by the response support map tool.'],
             [label: 'GeoAI API Health', method: 'GET', url: appendPath(geoaiUrl, '/health'), description: 'Direct GeoAI workflow service health response.'],
             [label: 'GeoAI Run Options', method: 'GET', url: appendPath(geoaiUrl, '/run-options'), description: 'Direct GeoAI model and workflow options.'],
             [label: 'GeoAI Workflows', method: 'GET', url: appendPath(geoaiUrl, '/workflows'), description: 'Direct GeoAI workflow catalog.'],
@@ -117,7 +117,7 @@ class HomeController {
             [label: 'GeoAI Training Import', url: appendPath(geoaiUrl, '/training/import'), description: 'Upload corrected QGIS labels back into the GeoAI training workflow.'],
             [label: 'Data Gateway Hub', url: gatewayConfig.hubUrl?.toString(), description: 'SignalR-style layer refresh/event gateway.'],
             [label: 'Data Gateway Health', url: gatewayHealthUrl(gatewayConfig), description: 'Gateway health endpoint shown in the top status strip.'],
-            [label: 'Incident Analyst MCP Bridge', url: incidentAnalystConfig.bridgeUrl?.toString(), description: 'Standalone MCP/demo bridge used by incident analysis and POI support lookup.']
+            [label: 'Incident Analyst MCP Bridge', url: incidentAnalystConfig.bridgeUrl?.toString(), description: 'Standalone MCP/demo bridge used by incident analysis and response support lookup.']
         ].findAll { Map link -> link.url }
     }
 
