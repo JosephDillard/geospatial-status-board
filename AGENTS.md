@@ -5,18 +5,24 @@ geospatial stack. It is a Grails application with a MapLibre map view, optional
 PostGIS/GeoServer infrastructure, and local integration with GeoAI and gateway
 services.
 
+## Suggested GitHub Description
+
+Grails, MapLibre, GeoServer, and PostGIS operational status board for incidents, infrastructure, GeoAI outputs, response support, and live geospatial map workflows.
+
 ## Stack Context
 
 Related sibling repos:
 
+- `geospatial-etl-validation-toolkit` validates incoming geospatial files before
+  they are loaded into PostGIS, published, or handed to app teams.
 - `geoai-asset-detection-platform` creates GeoAI vector detections that can be
   loaded into PostGIS and published through GeoServer.
 - `geospatial-data-gateway` loads geospatial source files into PostGIS and sends
   local SignalR refresh events to the map.
 - `geospatial-mcp-services` provides map-click assistant tools such as
-  GeoNames/Wikipedia lookup. In this app, keep the browser boundary explicit:
-  map tools use configured app routes, API proxies, or bridge URLs rather than
-  calling MCP internals directly from the page.
+  GeoNames/Wikipedia lookup and incident analysis. In this app, keep the
+  browser boundary explicit: map tools use configured app routes, API proxies,
+  or bridge URLs rather than calling MCP internals directly from the page.
 
 When changing cross-repo docs, prefer full GitHub URLs for links that point
 outside this repo.
