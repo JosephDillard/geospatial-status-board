@@ -2630,9 +2630,10 @@
 
     function normalizeSupportPoiResults(payload) {
         return ((payload || {}).nearby_support || []).map(function (entry) {
+            var category = String(entry.category || 'support').trim().toLowerCase();
             return {
                 title: entry.name || 'Support point',
-                category: entry.category || 'support',
+                category: category || 'support',
                 distanceKm: entry.distance_km == null ? null : Number(entry.distance_km),
                 source: entry.source || (payload || {}).source || 'support',
                 coordinates: normalizePlaceCoordinate(entry.longitude, entry.latitude)
@@ -2697,6 +2698,30 @@
         return formatDistance(distanceKm * 1000);
     }
 
+    function supportPoiIconExpression(active) {
+        return [
+            'match',
+            ['get', 'category'],
+            'medical',
+            active ? 'map-support-medical-active' : 'map-support-medical',
+            'hospital',
+            active ? 'map-support-medical-active' : 'map-support-medical',
+            'fire',
+            active ? 'map-support-fire-active' : 'map-support-fire',
+            'security',
+            active ? 'map-support-security-active' : 'map-support-security',
+            'police',
+            active ? 'map-support-security-active' : 'map-support-security',
+            'law',
+            active ? 'map-support-security-active' : 'map-support-security',
+            'air',
+            active ? 'map-support-air-active' : 'map-support-air',
+            'airport',
+            active ? 'map-support-air-active' : 'map-support-air',
+            active ? 'map-support-active' : 'map-support'
+        ];
+    }
+
     function supportPoiFeatureCollection() {
         return {
             type: 'FeatureCollection',
@@ -2750,8 +2775,8 @@
                     'icon-image': [
                         'case',
                         ['boolean', ['get', 'active'], false],
-                        'map-support-active',
-                        'map-support'
+                        supportPoiIconExpression(true),
+                        supportPoiIconExpression(false)
                     ],
                     'icon-size': 0.95,
                     'icon-allow-overlap': true,
@@ -3682,6 +3707,69 @@
         return ctx.getImageData(0, 0, size, size);
     }
 
+    function drawSupportLightGlyph(ctx, color) {
+        ctx.beginPath();
+        ctx.moveTo(22, 48);
+        ctx.lineTo(22, 32);
+        ctx.quadraticCurveTo(22, 18, 36, 18);
+        ctx.quadraticCurveTo(50, 18, 50, 32);
+        ctx.lineTo(50, 48);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillRect(19, 50, 34, 6);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(29, 36);
+        ctx.lineTo(43, 36);
+        ctx.moveTo(36, 29);
+        ctx.lineTo(36, 43);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(14, 34);
+        ctx.lineTo(8, 34);
+        ctx.moveTo(58, 34);
+        ctx.lineTo(64, 34);
+        ctx.moveTo(22, 18);
+        ctx.lineTo(17, 13);
+        ctx.moveTo(50, 18);
+        ctx.lineTo(55, 13);
+        ctx.stroke();
+    }
+
+    function drawMedicalGlyph(ctx, color) {
+        ctx.fillRect(31, 17, 10, 38);
+        ctx.fillRect(17, 31, 38, 10);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(31, 17, 10, 38);
+        ctx.strokeRect(17, 31, 38, 10);
+    }
+
+    function drawSecurityGlyph(ctx, color) {
+        ctx.beginPath();
+        ctx.moveTo(36, 15);
+        ctx.lineTo(55, 23);
+        ctx.lineTo(52, 43);
+        ctx.quadraticCurveTo(48, 56, 36, 61);
+        ctx.quadraticCurveTo(24, 56, 20, 43);
+        ctx.lineTo(17, 23);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(36, 24);
+        ctx.lineTo(36, 51);
+        ctx.moveTo(27, 34);
+        ctx.lineTo(45, 34);
+        ctx.moveTo(29, 42);
+        ctx.lineTo(43, 42);
+        ctx.stroke();
+    }
+
     function drawMapGlyph(ctx, id, color) {
         ctx.save();
         ctx.lineCap = 'round';
@@ -3734,36 +3822,14 @@
             ctx.moveTo(44, 38);
             ctx.lineTo(51, 38);
             ctx.stroke();
+        } else if (id.indexOf('map-support-medical') === 0) {
+            drawMedicalGlyph(ctx, color);
+        } else if (id.indexOf('map-support-security') === 0) {
+            drawSecurityGlyph(ctx, color);
+        } else if (id.indexOf('map-support-air') === 0) {
+            drawMapGlyph(ctx, 'map-airport', color);
         } else if (id.indexOf('map-support') === 0) {
-            ctx.beginPath();
-            ctx.moveTo(22, 48);
-            ctx.lineTo(22, 32);
-            ctx.quadraticCurveTo(22, 18, 36, 18);
-            ctx.quadraticCurveTo(50, 18, 50, 32);
-            ctx.lineTo(50, 48);
-            ctx.closePath();
-            ctx.fill();
-            ctx.fillRect(19, 50, 34, 6);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(29, 36);
-            ctx.lineTo(43, 36);
-            ctx.moveTo(36, 29);
-            ctx.lineTo(36, 43);
-            ctx.stroke();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(14, 34);
-            ctx.lineTo(8, 34);
-            ctx.moveTo(58, 34);
-            ctx.lineTo(64, 34);
-            ctx.moveTo(22, 18);
-            ctx.lineTo(17, 13);
-            ctx.moveTo(50, 18);
-            ctx.lineTo(55, 13);
-            ctx.stroke();
+            drawSupportLightGlyph(ctx, color);
         }
 
         ctx.restore();
@@ -3813,6 +3879,14 @@
         addMapIconImage('map-knowledge-active', '#facc15', 'circle');
         addMapIconImage('map-support', '#ea580c', 'circle');
         addMapIconImage('map-support-active', '#facc15', 'circle');
+        addMapIconImage('map-support-fire', '#dc2626', 'circle');
+        addMapIconImage('map-support-fire-active', '#facc15', 'circle');
+        addMapIconImage('map-support-medical', '#16a34a', 'circle');
+        addMapIconImage('map-support-medical-active', '#facc15', 'circle');
+        addMapIconImage('map-support-security', '#2563eb', 'circle');
+        addMapIconImage('map-support-security-active', '#facc15', 'circle');
+        addMapIconImage('map-support-air', '#7c3aed', 'circle');
+        addMapIconImage('map-support-air-active', '#facc15', 'circle');
     }
 
     function layerIconImage(layer) {
