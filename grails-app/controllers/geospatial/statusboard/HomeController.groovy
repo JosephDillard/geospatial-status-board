@@ -17,14 +17,15 @@ class HomeController {
         Map geoserverConfig = asMap(geoConfig.geoserver)
         Map geoaiConfig = asMap(geoConfig.geoai)
         Map gatewayConfig = asMap(geoConfig.gateway)
+        Map openclawConfig = asMap(geoConfig.openclaw)
         Map incidentAnalystConfig = asMap(geoConfig.incidentAnalyst)
 
         [
             username        : authentication?.name,
             roles           : authentication?.authorities*.authority?.sort() ?: [],
             appLinks        : appLinks(),
-            apiLinks        : apiLinks(geoConfig, geoserverConfig, geoaiConfig, gatewayConfig, incidentAnalystConfig),
-            integrationLinks: integrationLinks(geoserverConfig, geoaiConfig, gatewayConfig, incidentAnalystConfig)
+            apiLinks        : apiLinks(geoConfig, geoserverConfig, geoaiConfig, gatewayConfig, openclawConfig, incidentAnalystConfig),
+            integrationLinks: integrationLinks(geoserverConfig, geoaiConfig, gatewayConfig, openclawConfig, incidentAnalystConfig)
         ]
     }
 
@@ -60,16 +61,19 @@ class HomeController {
         Map geoserverConfig,
         Map geoaiConfig,
         Map gatewayConfig,
+        Map openclawConfig,
         Map incidentAnalystConfig
     ) {
         String geoaiUrl = trimTrailingSlash(geoaiConfig.apiUrl?.toString())
         String geoserverWfsUrl = geoserverConfig.wfsUrl?.toString()
         String gatewayHealthUrl = gatewayHealthUrl(gatewayConfig)
+        String openclawHealthUrl = openclawHealthUrl(openclawConfig)
+        String openclawReadyUrl = openclawReadyUrl(openclawConfig)
         Map currentIncidentsLayer = asMap(asMap(geoConfig.layers).currentIncidents)
         String currentIncidentsTypeName = currentIncidentsLayer.typeName?.toString() ?: 'gsb:current_incidents'
 
         [
-            [label: 'Service Health API', method: 'GET', uri: '/geoHealth/index', description: 'JSON status for GeoServer, PostGIS, GeoAI, and Data Gateway.'],
+            [label: 'Service Health API', method: 'GET', uri: '/geoHealth/index', description: 'JSON status for GeoServer, PostGIS, GeoAI, Data Gateway, and OpenClaw.'],
             [label: 'GeoAI Options Proxy', method: 'GET', uri: '/geoAi/options', description: 'Status-board proxy for available GeoAI models and workflows.'],
             [label: 'GeoAI Jobs Proxy', method: 'GET', uri: '/geoAi/jobs', description: 'Status-board proxy for known GeoAI detection jobs.'],
             [label: 'Incident Analysis Proxy', method: 'GET', uri: '/incident-analyst/api/analyze?latitude=35.687&longitude=-105.938&radius_km=220', description: 'Status-board proxy into the Incident Analyst MCP bridge analysis workflow.'],
@@ -96,15 +100,18 @@ class HomeController {
                 outputFormat: 'application/json',
                 maxFeatures : 25
             ]), description: 'Sample GeoJSON WFS request for current incident features.'],
-            [label: 'Data Gateway Health API', method: 'GET', url: gatewayHealthUrl, description: 'Direct Data Gateway health response.']
+            [label: 'Data Gateway Health API', method: 'GET', url: gatewayHealthUrl, description: 'Direct Data Gateway health response.'],
+            [label: 'OpenClaw Health API', method: 'GET', url: openclawHealthUrl, description: 'Direct OpenClaw gateway liveness response.'],
+            [label: 'OpenClaw Readiness API', method: 'GET', url: openclawReadyUrl, description: 'Direct OpenClaw gateway readiness response.']
         ].findAll { Map link ->
             link.uri || link.url
         }
     }
 
-    private List<Map> integrationLinks(Map geoserverConfig, Map geoaiConfig, Map gatewayConfig, Map incidentAnalystConfig) {
+    private List<Map> integrationLinks(Map geoserverConfig, Map geoaiConfig, Map gatewayConfig, Map openclawConfig, Map incidentAnalystConfig) {
         String geoserverRootUrl = geoserverRootUrl(geoserverConfig)
         String geoaiUrl = trimTrailingSlash(geoaiConfig.apiUrl?.toString())
+        String openclawUrl = openclawGatewayUrl(openclawConfig)
 
         [
             [label: 'GeoServer Admin Console', url: appendPath(geoserverRootUrl, '/web'), description: 'GeoServer GUI login and administration console.'],
@@ -117,6 +124,9 @@ class HomeController {
             [label: 'GeoAI Training Import', url: appendPath(geoaiUrl, '/training/import'), description: 'Upload corrected QGIS labels back into the GeoAI training workflow.'],
             [label: 'Data Gateway Hub', url: gatewayConfig.hubUrl?.toString(), description: 'SignalR-style layer refresh/event gateway.'],
             [label: 'Data Gateway Health', url: gatewayHealthUrl(gatewayConfig), description: 'Gateway health endpoint shown in the top status strip.'],
+            [label: 'OpenClaw Control UI', url: openclawUrl, description: 'Containerized assistant gateway UI for future map command workflows.'],
+            [label: 'OpenClaw Health', url: openclawHealthUrl(openclawConfig), description: 'OpenClaw liveness endpoint shown in the top status strip.'],
+            [label: 'OpenClaw Readiness', url: openclawReadyUrl(openclawConfig), description: 'OpenClaw readiness endpoint for startup checks.'],
             [label: 'Incident Analyst MCP Bridge', url: incidentAnalystConfig.bridgeUrl?.toString(), description: 'Standalone MCP/demo bridge used by incident analysis and response support lookup.']
         ].findAll { Map link -> link.url }
     }
@@ -149,6 +159,40 @@ class HomeController {
         int hubIndex = hubUrl.indexOf('/hubs/')
         String baseUrl = hubIndex > 0 ? hubUrl.substring(0, hubIndex) : hubUrl
         appendPath(baseUrl, '/health')
+    }
+
+    private String openclawGatewayUrl(Map openclawConfig) {
+        if (!asBoolean(openclawConfig.enabled, true)) {
+            return ''
+        }
+
+        trimTrailingSlash(openclawConfig.gatewayUrl?.toString())
+    }
+
+    private String openclawHealthUrl(Map openclawConfig) {
+        if (!asBoolean(openclawConfig.enabled, true)) {
+            return ''
+        }
+
+        String explicitUrl = openclawConfig.healthUrl?.toString()
+        if (explicitUrl) {
+            return explicitUrl
+        }
+
+        appendPath(openclawGatewayUrl(openclawConfig), '/healthz')
+    }
+
+    private String openclawReadyUrl(Map openclawConfig) {
+        if (!asBoolean(openclawConfig.enabled, true)) {
+            return ''
+        }
+
+        String explicitUrl = openclawConfig.readyUrl?.toString()
+        if (explicitUrl) {
+            return explicitUrl
+        }
+
+        appendPath(openclawGatewayUrl(openclawConfig), '/readyz')
     }
 
     private String appendPath(String baseUrl, String path) {
@@ -196,5 +240,13 @@ class HomeController {
         }
 
         [:]
+    }
+
+    private boolean asBoolean(Object value, boolean defaultValue) {
+        if (value == null) {
+            return defaultValue
+        }
+
+        value instanceof Boolean ? value : value.toString().toBoolean()
     }
 }

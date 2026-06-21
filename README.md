@@ -16,7 +16,7 @@ This repository contains a status app linkable to geospatial data for dashboard 
 - Editable lookup tables for dropdown text used by airport and incident workflows.
 - Development bootstrap data for New Mexico airports and airfields, current status, runway surface condition, support assets, utilities, current incidents, and archived incidents.
 - Single deployable WAR with the application served from `/GeoStatusBoard`.
-- Optional Docker Compose GIS stack for local PostGIS, GeoServer, and GeoAI development.
+- Optional Docker Compose stack for local PostGIS, GeoServer, GeoAI, and OpenClaw gateway development.
 
 ## Screenshots
 
@@ -35,7 +35,7 @@ The screenshot above shows the geospatial status map with GeoAI detections, the 
 - H2 development and test databases
 - PostGIS and GeoServer for open source GIS deployment
 - MapLibre GL JS 5.24.0 for the browser map
-- Docker Compose for optional local GIS and GeoAI infrastructure
+- Docker Compose for optional local GIS, GeoAI, and OpenClaw assistant infrastructure
 
 ## Project Layout
 
@@ -44,9 +44,9 @@ The screenshot above shows the geospatial status map with GeoAI detections, the 
 - `gsb-incidents/` - Incident, current incident, archived incident, and facility damage module.
 - `docs/` - Geospatial architecture notes, PostGIS spatialization SQL, and README images.
 - `docker/` - Local PostGIS initialization and GeoServer bootstrap scripts.
-- `docker-compose.yml` - Optional local PostGIS, GeoServer, and GeoAI services.
-- `.env.example` - Local Docker and GIS configuration defaults.
-- `dev.ps1` - Convenience commands for the local Docker GIS stack.
+- `docker-compose.yml` - Optional local PostGIS, GeoServer, GeoAI, and OpenClaw services.
+- `.env.example` - Local Docker, GIS, GeoAI, and OpenClaw configuration defaults.
+- `dev.ps1` - Convenience commands for the local Docker GIS, GeoAI, and OpenClaw stack.
 - `build.gradle` - Root build, WAR packaging, Java compatibility, and module dependencies.
 - `settings.gradle` - Includes the airport and incident modules under the `geospatial-status-board` Gradle root project.
 
@@ -101,9 +101,9 @@ username: admin
 password: admin123
 ```
 
-## Optional Docker GIS Stack
+## Optional Docker GIS And Assistant Stack
 
-Use Docker when you want local PostGIS and GeoServer for map/WFS integration testing. The Grails app can still run from IntelliJ or `bootRun`.
+Use Docker when you want local PostGIS and GeoServer for map/WFS integration testing, the GeoAI API container, or the OpenClaw assistant gateway. The Grails app can still run from IntelliJ or `bootRun`.
 
 Start the infrastructure:
 
@@ -124,6 +124,23 @@ TensorFlow/Keras:
 .\dev.ps1 up-geoai
 ```
 
+Start the optional OpenClaw gateway container:
+
+```powershell
+.\dev.ps1 up-openclaw
+```
+
+This command also initializes OpenClaw's local gateway config and creates an
+ignored `.env` file with a generated `OPENCLAW_GATEWAY_TOKEN` when one is
+missing.
+
+Equivalent raw Docker command:
+
+```powershell
+.\dev.ps1 init-openclaw
+docker compose --profile openclaw up -d openclaw-gateway
+```
+
 Default local endpoints:
 
 ```text
@@ -132,6 +149,9 @@ GeoServer: http://localhost:8081/geoserver
 WFS:       http://localhost:8081/geoserver/gsb/ows
 GeoAI:     http://localhost:8000
 Gateway:   http://localhost:7070
+OpenClaw:  http://localhost:18789
+OpenClaw health: http://localhost:18789/healthz
+OpenClaw ready:  http://localhost:18789/readyz
 ```
 
 Default local credentials:
@@ -148,6 +168,13 @@ Copy-Item .env.example .env
 ```
 
 Then edit `.env`. The `.env` file is intentionally ignored by Git.
+
+For OpenClaw, keep the generated `OPENCLAW_GATEWAY_TOKEN` private and replace it
+with your own secret before exposing the gateway outside your own development
+machine. The compose profile uses the published
+`ghcr.io/openclaw/openclaw:latest` image by default and persists OpenClaw state in
+Docker volumes named `gsb-openclaw-state`, `gsb-openclaw-workspace`, and
+`gsb-openclaw-auth-secrets`.
 
 `GEOSERVER_WFS_MAX_FEATURES` controls the GeoServer WFS service cap used by the
 bootstrap container. The default is `5000`, while the map viewer requests at least
@@ -173,6 +200,12 @@ model, the WHU building segmentation model, and the Taos NAIP sample COG if they
 are missing. Set `GEOAI_DOWNLOAD_HF_MODEL=false`,
 `GEOAI_DOWNLOAD_HF_BUILDING_MODEL=false`, or `GEOAI_FETCH_SAMPLE_COG=false` in
 `.env` to disable any automatic download.
+
+The OpenClaw profile gives the app a containerized assistant gateway foundation
+for the planned map command assistant. It does not yet execute map commands
+inside the browser; that still needs an allow-listed command endpoint and
+review/approval flow before write actions, such as plotting an incident, are
+saved.
 
 ### Keep Grails on H2
 
@@ -220,13 +253,21 @@ Useful Docker helper commands:
 ```powershell
 .\dev.ps1 logs
 .\dev.ps1 logs-geoai
+.\dev.ps1 logs-openclaw
 .\dev.ps1 build-geoai
 .\dev.ps1 geoserver-init
+.\dev.ps1 init-openclaw
+.\dev.ps1 openclaw-status
+.\dev.ps1 openclaw-dashboard
 .\dev.ps1 down
 .\dev.ps1 reset
 ```
 
-`reset` removes the local Docker volumes and recreates empty PostGIS and GeoServer state.
+`init-openclaw` writes the local gateway config and creates an ignored `.env`
+token if needed. `openclaw-status` runs the OpenClaw CLI sidecar probe.
+`openclaw-dashboard` prints the Control UI URL without trying to open a browser
+from inside Docker. `reset` removes the local Docker volumes and recreates empty
+PostGIS, GeoServer, and OpenClaw state.
 
 ## Build
 
@@ -388,13 +429,22 @@ inventory footprint table is `public.geoai_cog_footprints` and is exposed as
 `COG Footprints`.
 
 The hub page and map health strip include the companion Geospatial Data Gateway
-next to GeoServer, PostGIS, and GeoAI. The map can subscribe to the gateway's
-local SignalR hub and refresh a configured WFS layer when the gateway broadcasts
-`layer.refresh_requested`. Configure it with:
+and OpenClaw assistant gateway next to GeoServer, PostGIS, and GeoAI. The map can
+subscribe to the Data Gateway's local SignalR hub and refresh a configured WFS
+layer when the gateway broadcasts `layer.refresh_requested`. Configure it with:
 
 ```text
 GEOSPATIAL_GATEWAY_SIGNALR_ENABLED=true
 GEOSPATIAL_GATEWAY_HUB_URL=http://localhost:7070/hubs/geospatial-updates
+```
+
+OpenClaw is configured separately:
+
+```text
+OPENCLAW_ENABLED=true
+OPENCLAW_GATEWAY_URL=http://localhost:18789
+OPENCLAW_HEALTH_URL=http://localhost:18789/healthz
+OPENCLAW_READY_URL=http://localhost:18789/readyz
 ```
 
 For a local smoke test while the map is open, trigger a refresh event:
@@ -422,9 +472,10 @@ See:
 
 ## Development Roadmap
 
-Planned map work includes an OpenCLAW-style map command assistant: a prompt on
-the shared MapLibre map where an analyst can ask for map tasks in natural
-language and the app turns those requests into reviewed, structured actions.
+OpenClaw is now available as an optional Docker gateway for the local development
+stack. The next map work is an OpenClaw-backed command assistant: a prompt on the
+shared MapLibre map where an analyst can ask for map tasks in natural language
+and the app turns those requests into reviewed, structured actions.
 Candidate requests include:
 
 - "Plot a wildfire incident at 34.904222, -106.575583."
@@ -433,11 +484,12 @@ Candidate requests include:
 - "Turn on airports, current incidents, and GeoAI detections."
 - "Draw an AOI around this view and submit a GeoAI road-detection run."
 
-The first version should route commands to existing map capabilities instead of
-creating a separate automation stack. Read-only commands can pan, filter, toggle
-layers, run Wiki/GeoNames or response-support lookups, and summarize visible
-incidents. Write commands, such as creating or editing an incident, should return
-a preview and require explicit user confirmation before anything is saved.
+The first app-connected version should route commands to existing map
+capabilities instead of creating a separate automation stack. Read-only commands
+can pan, filter, toggle layers, run Wiki/GeoNames or response-support lookups,
+and summarize visible incidents. Write commands, such as creating or editing an
+incident, should return a preview and require explicit user confirmation before
+anything is saved.
 
 Recommended implementation phases:
 
@@ -465,6 +517,7 @@ Recommended implementation phases:
 - Added custom map icons for airports, incident layers, Wiki/GeoNames results, and response-support results.
 - Added custom route favicons and a minimizable overview map that opens with the main map.
 - Added Data Gateway health/link visibility on the hub and map service status surfaces.
+- Added an optional OpenClaw Docker Compose profile, health status, and hub links as the foundation for a map command assistant.
 - Pinned MapLibre GL JS/CSS assets to stable `maplibre-gl@5.24.0`.
 
 ## Data Sources

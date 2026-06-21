@@ -105,6 +105,11 @@ geo:
         healthUrl: "${GEOSPATIAL_GATEWAY_HEALTH_URL:http://localhost:7070/health}"
         reconnectDelayMs: "${GEOSPATIAL_GATEWAY_RECONNECT_DELAY_MS:5000}"
         eventName: "${GEOSPATIAL_GATEWAY_LAYER_REFRESH_EVENT:layer.refresh_requested}"
+    openclaw:
+        enabled: "${OPENCLAW_ENABLED:true}"
+        gatewayUrl: "${OPENCLAW_GATEWAY_URL:http://localhost:18789}"
+        healthUrl: "${OPENCLAW_HEALTH_URL:http://localhost:18789/healthz}"
+        readyUrl: "${OPENCLAW_READY_URL:http://localhost:18789/readyz}"
     incidentAnalyst:
         enabled: "${INCIDENT_ANALYST_ENABLED:true}"
         bridgeUrl: "${INCIDENT_ANALYST_BRIDGE_URL:http://127.0.0.1:8775/incident-analyst}"

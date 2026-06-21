@@ -22,6 +22,7 @@ class GeoHealthController {
         Map geoserverConfig = asMap(geoConfig.geoserver)
         Map geoaiConfig = asMap(geoConfig.geoai)
         Map gatewayConfig = asMap(geoConfig.gateway)
+        Map openclawConfig = asMap(geoConfig.openclaw)
         Map healthConfig = asMap(geoConfig.health)
         int timeoutMs = asInteger(healthConfig.requestTimeoutMs, 2500)
 
@@ -42,6 +43,11 @@ class GeoHealthController {
                 gateway  : checkHttp(
                     'Data Gateway',
                     gatewayHealthUrl(gatewayConfig),
+                    timeoutMs
+                ),
+                openclaw : checkHttp(
+                    'OpenClaw',
+                    openclawHealthUrl(openclawConfig),
                     timeoutMs
                 )
             ]
@@ -167,6 +173,20 @@ class GeoHealthController {
         int hubIndex = trimmed.indexOf('/hubs/')
         String baseUrl = hubIndex > 0 ? trimmed.substring(0, hubIndex) : trimmed
         "${baseUrl}/health"
+    }
+
+    private String openclawHealthUrl(Map openclawConfig) {
+        if (!asBoolean(openclawConfig.enabled, true)) {
+            return ''
+        }
+
+        String explicitHealthUrl = openclawConfig.healthUrl?.toString()
+        if (explicitHealthUrl) {
+            return explicitHealthUrl
+        }
+
+        String gatewayUrl = openclawConfig.gatewayUrl?.toString()
+        gatewayUrl ? "${gatewayUrl.replaceAll('/+$', '')}/healthz" : ''
     }
 
     private Map status(boolean up, String label, String message, Map details = [:]) {
