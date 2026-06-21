@@ -182,6 +182,7 @@ geo:
             geoaiRequests: true
             placeSearch: true
             supportPoi: true
+            assistant: true
         center:
             - -106.0
             - 34.5

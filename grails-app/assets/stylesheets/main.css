@@ -1572,6 +1572,7 @@ img.grails-logo {
 .geo-map-square-button:focus,
 .geo-map-square-button.is-active,
 .geo-ai-toggle.is-active,
+.geo-assistant-toggle.is-active,
 .geo-place-search-toggle.is-active,
 .geo-poi-search-toggle.is-active,
 .geo-measure-toggle.is-active {
@@ -1722,7 +1723,13 @@ img.grails-logo {
     letter-spacing: 0;
 }
 
-.geo-ai-panel {
+.geo-assistant-toggle {
+    font-size: 0.78rem;
+    letter-spacing: 0;
+}
+
+.geo-ai-panel,
+.geo-assistant-panel {
     backdrop-filter: blur(14px);
     background: var(--geo-map-panel-strong);
     border: 1px solid var(--geo-map-border);
@@ -1741,25 +1748,36 @@ img.grails-logo {
     z-index: 8;
 }
 
-.geo-ai-panel[hidden] {
+.geo-assistant-panel {
+    height: min(560px, calc(100vh - 250px));
+    max-height: min(560px, calc(100vh - 250px));
+    width: min(380px, calc(100vw - 88px));
+}
+
+.geo-ai-panel[hidden],
+.geo-assistant-panel[hidden] {
     display: none;
 }
 
-.geo-ai-panel-header {
+.geo-ai-panel-header,
+.geo-assistant-panel-header {
     align-items: center;
     border-bottom: 1px solid rgba(147, 197, 253, 0.28);
     display: flex;
+    gap: 0.45rem;
     justify-content: space-between;
     margin-top: -0.1rem;
     padding-bottom: 0.5rem;
 }
 
-.geo-ai-panel-header strong {
+.geo-ai-panel-header strong,
+.geo-assistant-panel-header strong {
     color: #ffffff;
     font-size: 0.98rem;
 }
 
-.geo-ai-form {
+.geo-ai-form,
+.geo-assistant-form {
     display: grid;
     gap: 0.58rem;
 }
@@ -1829,6 +1847,160 @@ img.grails-logo {
 .geo-ai-status.is-error {
     border-color: #fb7185;
     color: #fecdd3;
+}
+
+.geo-assistant-gateway {
+    background: rgba(51, 65, 85, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.62);
+    border-radius: 4px;
+    color: #e2e8f0;
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-left: auto;
+    min-height: 22px;
+    padding: 0.32rem 0.42rem;
+    white-space: nowrap;
+}
+
+.geo-assistant-gateway.is-up {
+    background: rgba(21, 128, 61, 0.92);
+    border-color: rgba(134, 239, 172, 0.8);
+    color: #f0fdf4;
+}
+
+.geo-assistant-gateway.is-down {
+    background: rgba(190, 18, 60, 0.92);
+    border-color: rgba(253, 164, 175, 0.8);
+    color: #fff1f2;
+}
+
+.geo-assistant-form label {
+    color: #bfdbfe;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.geo-assistant-form textarea {
+    background: rgba(7, 28, 55, 0.84);
+    border: 1px solid rgba(147, 197, 253, 0.42);
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    min-height: 82px;
+    min-width: 0;
+    padding: 0.48rem;
+    resize: vertical;
+    width: 100%;
+}
+
+.geo-assistant-form textarea:focus {
+    border-color: #7dd3fc;
+    outline: 2px solid rgba(56, 189, 248, 0.28);
+}
+
+.geo-assistant-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.geo-assistant-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.geo-assistant-suggestions button {
+    background: rgba(15, 53, 96, 0.84);
+    border: 1px solid rgba(147, 197, 253, 0.42);
+    border-radius: 4px;
+    color: #e6f0ff;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 800;
+    min-height: 28px;
+    padding: 0.28rem 0.45rem;
+}
+
+.geo-assistant-suggestions button:hover,
+.geo-assistant-suggestions button:focus {
+    background: #38bdf8;
+    border-color: #7dd3fc;
+    color: #031525;
+    outline: none;
+}
+
+.geo-assistant-status,
+.geo-assistant-response {
+    background: rgba(15, 53, 96, 0.62);
+    border: 1px solid rgba(147, 197, 253, 0.28);
+    border-radius: 4px;
+    color: #dbeafe;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    min-height: 32px;
+    overflow-wrap: anywhere;
+    padding: 0.42rem 0.48rem;
+}
+
+.geo-assistant-status.is-error,
+.geo-assistant-response .is-error {
+    border-color: #fb7185;
+    color: #fecdd3;
+}
+
+.geo-assistant-response {
+    display: grid;
+    gap: 0.4rem;
+    max-height: 160px;
+    overflow: auto;
+}
+
+.geo-assistant-response[hidden] {
+    display: none;
+}
+
+.geo-assistant-response p {
+    margin: 0;
+}
+
+.geo-assistant-plan {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.geo-assistant-action {
+    align-items: center;
+    background: rgba(7, 28, 55, 0.72);
+    border: 1px solid rgba(147, 197, 253, 0.24);
+    border-radius: 5px;
+    display: grid;
+    gap: 0.45rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.45rem;
+}
+
+.geo-assistant-action-text {
+    display: grid;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.geo-assistant-action-text strong {
+    color: #ffffff;
+    font-size: 0.82rem;
+    line-height: 1.2;
+}
+
+.geo-assistant-action-text span,
+.geo-assistant-empty {
+    color: #bfdbfe;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    margin: 0;
 }
 
 .geo-map-canvas.is-placing-incident,
@@ -2617,6 +2789,12 @@ img.grails-logo {
         max-height: calc(100% - 148px);
         top: 120px;
         width: calc(100% - 74px);
+    }
+
+    .geo-assistant-panel {
+        height: min(440px, calc(100vh - 250px));
+        max-height: min(440px, calc(100vh - 250px));
+        width: calc(100vw - 82px);
     }
 
     .geo-incident-field-pair {

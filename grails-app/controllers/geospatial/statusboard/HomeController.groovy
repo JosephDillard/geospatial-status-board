@@ -33,6 +33,7 @@ class HomeController {
         [
             [label: 'Home Dashboard', controller: 'home', action: 'index', description: 'Main launch hub for application pages, APIs, and service consoles.'],
             [label: 'Map View', controller: 'map', action: 'index', description: 'Shared operational map with layers, plotting, Wiki/GeoNames, LLM, response support, and MGRS tools.'],
+            [label: 'Map Assistant Demo', controller: 'assistant', action: 'index', description: 'OpenClaw-ready map command assistant for safe map actions and reviewed incident drafts.'],
             [label: 'Incident Analyst', uri: '/incident-analyst', description: 'Focused incident review map using the same map tools with risk and support review.'],
             [label: 'Current Incidents Table', controller: 'currentIncidents', action: 'index', description: 'Table review and filtering for active incident records.'],
             [label: 'Incident Kanban', controller: 'currentIncidents', action: 'board', description: 'Workflow board for moving incidents through review states.'],
@@ -74,6 +75,8 @@ class HomeController {
 
         [
             [label: 'Service Health API', method: 'GET', uri: '/geoHealth/index', description: 'JSON status for GeoServer, PostGIS, GeoAI, Data Gateway, and OpenClaw.'],
+            [label: 'Assistant Tool Catalog', method: 'GET', uri: '/assistant/tools', description: 'Allow-listed map assistant tool/action catalog.'],
+            [label: 'Assistant Plan API', method: 'POST', uri: '/assistant/plan', description: 'Turns a prompt and map context into reviewed map actions.'],
             [label: 'GeoAI Options Proxy', method: 'GET', uri: '/geoAi/options', description: 'Status-board proxy for available GeoAI models and workflows.'],
             [label: 'GeoAI Jobs Proxy', method: 'GET', uri: '/geoAi/jobs', description: 'Status-board proxy for known GeoAI detection jobs.'],
             [label: 'Incident Analysis Proxy', method: 'GET', uri: '/incident-analyst/api/analyze?latitude=35.687&longitude=-105.938&radius_km=220', description: 'Status-board proxy into the Incident Analyst MCP bridge analysis workflow.'],

@@ -16,6 +16,7 @@ class MapController {
         Map geoserverConfig = asMap(geoConfig.geoserver)
         Map geoaiConfig = asMap(geoConfig.geoai)
         Map gatewayConfig = asMap(geoConfig.gateway)
+        Map openclawConfig = asMap(geoConfig.openclaw)
         Map placeSearchConfig = asMap(geoConfig.placeSearch)
         Map incidentAnalystConfig = asMap(geoConfig.incidentAnalyst)
         boolean incidentAnalystMode = isIncidentAnalystMode()
@@ -86,6 +87,14 @@ class MapController {
                 hubUrl          : gatewayConfig.hubUrl?.toString() ?: '',
                 reconnectDelayMs: asInteger(gatewayConfig.reconnectDelayMs, 5000),
                 eventName       : gatewayConfig.eventName?.toString() ?: 'layer.refresh_requested'
+            ],
+            assistant       : [
+                enabled          : asBoolean(tools.assistant, true),
+                open             : params.assistant?.toString() == 'open',
+                planUrl          : createLink(uri: '/assistant/plan'),
+                toolsUrl         : createLink(uri: '/assistant/tools'),
+                serviceHealthUrl : createLink(controller: 'geoHealth', action: 'index'),
+                openclawGatewayUrl: openclawConfig.gatewayUrl?.toString() ?: 'http://localhost:18789'
             ],
             placeSearch     : [
                 geonamesUsername     : placeSearchConfig.geonamesUsername?.toString() ?: System.getenv('GEONAMES_USERNAME') ?: '',
@@ -267,7 +276,8 @@ class MapController {
             createIncidents: asBoolean(rawTools.createIncidents, true),
             geoaiRequests  : asBoolean(rawTools.geoaiRequests, true),
             placeSearch    : asBoolean(rawTools.placeSearch, true),
-            supportPoi     : asBoolean(rawTools.supportPoi, true)
+            supportPoi     : asBoolean(rawTools.supportPoi, true),
+            assistant      : asBoolean(rawTools.assistant, true)
         ]
     }
 

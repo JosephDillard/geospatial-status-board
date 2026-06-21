@@ -252,6 +252,41 @@
                     <output id="geo-ai-status" class="geo-ai-status" aria-live="polite">Checking GeoAI...</output>
                 </aside>
             </div>
+            <div id="geo-assistant-tools" class="geo-assistant-control">
+                <button id="geo-assistant-toggle"
+                        type="button"
+                        class="geo-map-square-button geo-assistant-toggle"
+                        aria-label="Map assistant"
+                        aria-expanded="false"
+                        title="Map assistant">
+                    AI
+                </button>
+                <aside id="geo-assistant-panel" class="geo-assistant-panel" aria-label="Map assistant" hidden>
+                    <div class="geo-assistant-panel-header">
+                        <strong>Map Assistant</strong>
+                        <span id="geo-assistant-gateway" class="geo-assistant-gateway">Checking</span>
+                        <button id="geo-assistant-close" type="button" class="geo-map-icon-button" aria-label="Close map assistant">x</button>
+                    </div>
+                    <form id="geo-assistant-form" class="geo-assistant-form">
+                        <label for="geo-assistant-prompt">Ask</label>
+                        <textarea id="geo-assistant-prompt"
+                                  name="prompt"
+                                  rows="3"
+                                  placeholder="Show current incidents and zoom to high-risk incidents"></textarea>
+                        <div class="geo-assistant-actions">
+                            <button id="geo-assistant-submit" type="submit" class="btn btn-primary">Plan</button>
+                        </div>
+                    </form>
+                    <div class="geo-assistant-suggestions" aria-label="Assistant examples">
+                        <button type="button" data-assistant-prompt="Show current incidents and zoom to high-risk incidents north of Santa Fe.">High Risk</button>
+                        <button type="button" data-assistant-prompt="Find response support near the highest-risk incident.">Support</button>
+                        <button type="button" data-assistant-prompt="Plot a wildfire incident at 35.6870, -105.9378 called Santa Fe demo incident.">Draft</button>
+                    </div>
+                    <output id="geo-assistant-status" class="geo-assistant-status" aria-live="polite">Ready</output>
+                    <div id="geo-assistant-response" class="geo-assistant-response" hidden></div>
+                    <div id="geo-assistant-plan" class="geo-assistant-plan" aria-label="Assistant action plan"></div>
+                </aside>
+            </div>
             <div id="geo-measure-tools" class="geo-measure-control">
                 <button id="geo-measure-toggle"
                         type="button"
@@ -501,6 +536,17 @@
     var geoAiSubmit = document.getElementById('geo-ai-submit');
     var geoAiExtent = document.getElementById('geo-ai-extent');
     var geoAiStatus = document.getElementById('geo-ai-status');
+    var assistantTools = document.getElementById('geo-assistant-tools');
+    var assistantToggle = document.getElementById('geo-assistant-toggle');
+    var assistantPanel = document.getElementById('geo-assistant-panel');
+    var assistantClose = document.getElementById('geo-assistant-close');
+    var assistantForm = document.getElementById('geo-assistant-form');
+    var assistantPrompt = document.getElementById('geo-assistant-prompt');
+    var assistantSubmit = document.getElementById('geo-assistant-submit');
+    var assistantStatus = document.getElementById('geo-assistant-status');
+    var assistantResponse = document.getElementById('geo-assistant-response');
+    var assistantPlan = document.getElementById('geo-assistant-plan');
+    var assistantGateway = document.getElementById('geo-assistant-gateway');
     var measureTools = document.getElementById('geo-measure-tools');
     var measureToggle = document.getElementById('geo-measure-toggle');
     var measurePanel = document.getElementById('geo-measure-panel');
@@ -569,6 +615,8 @@
     var geoAiCurrentRunId = null;
     var geoAiPollTimer = null;
     var geoAiRunActive = false;
+    var assistantLastPlan = null;
+    var assistantActionResults = [];
     var gatewaySocket = null;
     var gatewayReconnectTimer = null;
     var gatewayConnected = false;
@@ -1076,6 +1124,9 @@
         geoAiToggle.classList.toggle('is-active', open);
         geoAiToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) {
+            if (assistantPanel && !assistantPanel.hidden) {
+                setAssistantPanelOpen(false);
+            }
             setPlaceSearchMode(false);
             setSupportPoiMode(false);
             setIncidentCreateMode(false);
@@ -1086,6 +1137,545 @@
                 loadGeoAiOptions();
             }
         }
+    }
+
+    function assistantConfig() {
+        return config.assistant || {};
+    }
+
+    function setAssistantStatus(message, isError) {
+        if (!assistantStatus) {
+            return;
+        }
+        assistantStatus.textContent = message || '';
+        assistantStatus.classList.toggle('is-error', !!isError);
+    }
+
+    function setAssistantGateway(payload) {
+        if (!assistantGateway) {
+            return;
+        }
+        var openclaw = payload && payload.openclaw ? payload.openclaw : {};
+        var status = openclaw.status || 'unknown';
+        assistantGateway.textContent = status === 'up' ? 'OpenClaw up' : (status === 'disabled' ? 'Local planner' : 'OpenClaw down');
+        assistantGateway.classList.toggle('is-up', status === 'up');
+        assistantGateway.classList.toggle('is-down', status === 'down');
+        assistantGateway.title = openclaw.message || openclaw.gatewayUrl || '';
+    }
+
+    function setAssistantPanelOpen(open) {
+        if (!assistantPanel || !assistantToggle) {
+            return;
+        }
+        assistantPanel.hidden = !open;
+        assistantToggle.classList.toggle('is-active', open);
+        assistantToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+            setGeoAiPanelOpen(false);
+            setPlaceSearchMode(false);
+            setSupportPoiMode(false);
+            setIncidentCreateMode(false);
+            setMeasureMode(false);
+            if (assistantPrompt && !assistantPrompt.value) {
+                assistantPrompt.value = 'Show current incidents and zoom to high-risk incidents north of Santa Fe.';
+            }
+            setAssistantStatus('Ready');
+            window.setTimeout(function () {
+                if (assistantPrompt) {
+                    assistantPrompt.focus();
+                    assistantPrompt.select();
+                }
+            }, 0);
+        }
+    }
+
+    function assistantBoundsContext() {
+        if (!map || typeof map.getBounds !== 'function') {
+            return {};
+        }
+        var bounds = map.getBounds();
+        return {
+            west: Number(bounds.getWest().toFixed(6)),
+            south: Number(bounds.getSouth().toFixed(6)),
+            east: Number(bounds.getEast().toFixed(6)),
+            north: Number(bounds.getNorth().toFixed(6))
+        };
+    }
+
+    function assistantLayerContext() {
+        var layers = [];
+        Object.keys(config.layers || {}).forEach(function (key) {
+            var checkbox = document.querySelector('[data-layer-kind="internal"][data-layer-key="' + key + '"]');
+            var state = internalLayerState[key] || {};
+            layers.push({
+                key: key,
+                title: (config.layers[key] || {}).title || key,
+                kind: 'internal',
+                enabled: !!(checkbox && checkbox.checked),
+                loaded: !!state.loaded
+            });
+        });
+        Object.keys(config.externalLayers || {}).forEach(function (key) {
+            var checkbox = document.querySelector('[data-layer-kind="external"][data-layer-key="' + key + '"]');
+            var state = externalLayerState[key] || {};
+            layers.push({
+                key: key,
+                title: (config.externalLayers[key] || {}).title || key,
+                kind: 'external',
+                enabled: !!(checkbox && checkbox.checked),
+                loaded: !!state.loaded
+            });
+        });
+        return layers;
+    }
+
+    function assistantIncidentContext() {
+        return currentIncidentFeatures().slice(0, 40).map(function (feature) {
+            var properties = feature.properties || {};
+            var lngLat = featureLngLat(feature);
+            return {
+                id: propertyValue(properties, ['incident_id', 'incidentId', 'id']) || '',
+                name: propertyValue(properties, ['event_name', 'eventName']) || '',
+                type: propertyValue(properties, ['event_type', 'eventType']) || '',
+                workflowStatus: propertyValue(properties, ['workflow_status', 'workflowStatus']) || '',
+                significant: propertyValue(properties, ['sig_event', 'sigEvent']) || '',
+                airOpsAffected: propertyValue(properties, ['air_ops_affected', 'airOpsAffected']) || '',
+                longitude: lngLat ? lngLat.lng : null,
+                latitude: lngLat ? lngLat.lat : null
+            };
+        });
+    }
+
+    function assistantMapContext() {
+        var center = map ? map.getCenter() : { lng: null, lat: null };
+        return {
+            route: window.location.pathname,
+            center: {
+                longitude: center.lng == null ? null : Number(center.lng.toFixed(6)),
+                latitude: center.lat == null ? null : Number(center.lat.toFixed(6))
+            },
+            zoom: map ? Number(map.getZoom().toFixed(2)) : null,
+            bounds: assistantBoundsContext(),
+            layers: assistantLayerContext(),
+            incidents: assistantIncidentContext()
+        };
+    }
+
+    function assistantAppendResult(message, isError) {
+        if (!assistantResponse) {
+            return;
+        }
+        assistantResponse.hidden = false;
+        var entry = document.createElement('p');
+        entry.className = isError ? 'is-error' : '';
+        entry.textContent = message;
+        assistantResponse.appendChild(entry);
+        assistantResponse.scrollTop = assistantResponse.scrollHeight;
+    }
+
+    function clearAssistantPlan() {
+        assistantActionResults = [];
+        if (assistantPlan) {
+            assistantPlan.innerHTML = '';
+        }
+        if (assistantResponse) {
+            assistantResponse.innerHTML = '';
+            assistantResponse.hidden = true;
+        }
+    }
+
+    function submitAssistantPrompt(prompt) {
+        var planUrl = assistantConfig().planUrl;
+        if (!planUrl) {
+            setAssistantStatus('Assistant plan URL is not configured.', true);
+            return;
+        }
+        if (!prompt || !prompt.trim()) {
+            setAssistantStatus('Enter a prompt first.', true);
+            return;
+        }
+
+        setAssistantStatus('Planning...');
+        if (assistantSubmit) {
+            assistantSubmit.disabled = true;
+        }
+        clearAssistantPlan();
+
+        fetch(planUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                prompt: prompt,
+                context: assistantMapContext()
+            })
+        }).then(function (response) {
+            return response.json().then(function (payload) {
+                if (!response.ok) {
+                    throw new Error(payload.message || payload.error || 'Assistant returned HTTP ' + response.status);
+                }
+                return payload;
+            });
+        }).then(function (payload) {
+            assistantLastPlan = payload;
+            renderAssistantPlan(payload);
+            setAssistantStatus((payload.actions || []).length ? 'Plan ready' : 'No actions');
+            setAssistantGateway(payload);
+        }).catch(function (error) {
+            setAssistantStatus(error.message || 'Assistant planning failed.', true);
+        }).finally(function () {
+            if (assistantSubmit) {
+                assistantSubmit.disabled = false;
+            }
+        });
+    }
+
+    function actionWriteLabel(action) {
+        if (action.requiresConfirmation) {
+            return 'Preview';
+        }
+        return action.writes ? 'Prepare' : 'Run';
+    }
+
+    function renderAssistantPlan(payload) {
+        if (assistantResponse) {
+            assistantResponse.hidden = false;
+            assistantResponse.innerHTML = '';
+            var message = document.createElement('p');
+            message.textContent = payload.message || 'Plan ready.';
+            assistantResponse.appendChild(message);
+        }
+        if (!assistantPlan) {
+            return;
+        }
+        assistantPlan.innerHTML = '';
+        var actions = payload.actions || [];
+        if (!actions.length) {
+            var empty = document.createElement('p');
+            empty.className = 'geo-assistant-empty';
+            empty.textContent = 'No runnable actions.';
+            assistantPlan.appendChild(empty);
+            return;
+        }
+        actions.forEach(function (action) {
+            var row = document.createElement('div');
+            row.className = 'geo-assistant-action';
+            row.setAttribute('data-assistant-action-id', action.id || '');
+
+            var text = document.createElement('div');
+            text.className = 'geo-assistant-action-text';
+            var title = document.createElement('strong');
+            title.textContent = action.label || action.type || 'Action';
+            var meta = document.createElement('span');
+            meta.textContent = action.requiresConfirmation ? 'Reviewed draft' : (action.writes ? 'Write action' : 'Safe action');
+            text.appendChild(title);
+            text.appendChild(meta);
+
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'geo-map-tool-button';
+            button.textContent = actionWriteLabel(action);
+            button.addEventListener('click', function () {
+                runAssistantAction(action, button);
+            });
+
+            row.appendChild(text);
+            row.appendChild(button);
+            assistantPlan.appendChild(row);
+        });
+    }
+
+    function runAssistantAction(action, button) {
+        if (!action || !action.type) {
+            return;
+        }
+        if (button) {
+            button.disabled = true;
+        }
+        setAssistantStatus('Running ' + (action.label || action.type) + '...');
+        Promise.resolve(executeAssistantAction(action))
+            .then(function (message) {
+                assistantActionResults.push({ action: action.type, message: message || 'Done' });
+                assistantAppendResult(message || 'Done');
+                setAssistantStatus('Action complete');
+            })
+            .catch(function (error) {
+                assistantAppendResult(error.message || 'Action failed.', true);
+                setAssistantStatus(error.message || 'Action failed.', true);
+            })
+            .finally(function () {
+                if (button) {
+                    button.disabled = false;
+                }
+            });
+    }
+
+    function executeAssistantAction(action) {
+        var params = action.params || {};
+        if (action.type === 'map.flyTo') {
+            return assistantFlyTo(params);
+        }
+        if (action.type === 'map.flyToMgrs') {
+            return assistantFlyToMgrs(params);
+        }
+        if (action.type === 'map.toggleLayer') {
+            return assistantToggleLayer(params);
+        }
+        if (action.type === 'incident.zoomHighRisk') {
+            return assistantZoomHighRisk(params);
+        }
+        if (action.type === 'incident.summarizeVisible') {
+            return assistantSummarizeVisibleIncidents();
+        }
+        if (action.type === 'incident.previewCreate') {
+            return assistantPreviewIncident(params);
+        }
+        if (action.type === 'place.wikipediaSearch') {
+            return assistantPlaceSearch(params);
+        }
+        if (action.type === 'support.search') {
+            return assistantSupportSearch(params);
+        }
+        if (action.type === 'geoai.openPanel') {
+            setAssistantPanelOpen(false);
+            setGeoAiPanelOpen(true);
+            return 'GeoAI request panel opened.';
+        }
+        if (action.type === 'service.healthSummary') {
+            return assistantHealthSummary(params);
+        }
+        if (action.type === 'navigate') {
+            if (!params.url) {
+                throw new Error('Navigation URL is missing.');
+            }
+            window.location.href = params.url;
+            return 'Opening page...';
+        }
+        throw new Error('Unsupported assistant action: ' + action.type);
+    }
+
+    function assistantFlyTo(params) {
+        var longitude = Number(params.longitude);
+        var latitude = Number(params.latitude);
+        if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+            throw new Error('Assistant action has invalid coordinates.');
+        }
+        map.easeTo({
+            center: [longitude, latitude],
+            zoom: Number(params.zoom || Math.max(map.getZoom(), 12)),
+            duration: 700,
+            essential: true
+        });
+        return 'Map centered at ' + latitude.toFixed(5) + ', ' + longitude.toFixed(5) + '.';
+    }
+
+    function assistantFlyToMgrs(params) {
+        if (!window.mgrs || typeof window.mgrs.toPoint !== 'function') {
+            throw new Error('MGRS conversion is unavailable.');
+        }
+        var point = window.mgrs.toPoint(params.mgrsCoord || '');
+        if (!point || point.length < 2) {
+            throw new Error('MGRS coordinate could not be converted.');
+        }
+        return assistantFlyTo({
+            longitude: Number(point[0]),
+            latitude: Number(point[1]),
+            zoom: params.zoom || 15
+        });
+    }
+
+    function assistantToggleLayer(params) {
+        var key = params.layerKey;
+        var kind = params.kind || 'internal';
+        var enabled = params.enabled !== false;
+        if (!key) {
+            throw new Error('Layer key is missing.');
+        }
+        var checkbox = document.querySelector('[data-layer-kind="' + kind + '"][data-layer-key="' + key + '"]');
+        if (checkbox) {
+            checkbox.checked = enabled;
+        }
+        if (kind === 'external') {
+            toggleExternalLayer(key, enabled);
+        } else if (enabled) {
+            loadInternalLayer(key);
+        } else {
+            removeInternalLayer(key);
+        }
+        var layer = kind === 'external' ? (config.externalLayers || {})[key] : (config.layers || {})[key];
+        return (layer && layer.title ? layer.title : key) + (enabled ? ' enabled.' : ' disabled.');
+    }
+
+    function assistantVisibleIncidentFeatures() {
+        if (!map) {
+            return [];
+        }
+        var bounds = map.getBounds();
+        return currentIncidentFeatures().filter(function (feature) {
+            var lngLat = featureLngLat(feature);
+            return lngLat && bounds.contains([lngLat.lng, lngLat.lat]);
+        });
+    }
+
+    function assistantIncidentRiskScore(feature) {
+        var properties = feature.properties || {};
+        var type = String(propertyValue(properties, ['event_type', 'eventType']) || '').toLowerCase();
+        var status = String(propertyValue(properties, ['workflow_status', 'workflowStatus']) || '').toLowerCase();
+        var significant = String(propertyValue(properties, ['sig_event', 'sigEvent']) || '').toLowerCase();
+        var airOps = String(propertyValue(properties, ['air_ops_affected', 'airOpsAffected']) || '').toLowerCase();
+        var score = 0;
+        if (significant === 'yes' || significant === 'true') {
+            score += 4;
+        }
+        if (airOps === 'yes' || airOps === 'true') {
+            score += 3;
+        }
+        if (status.indexOf('new') >= 0 || status.indexOf('review') >= 0) {
+            score += 1;
+        }
+        if (/(fire|smoke|security|threat|medical|utility|weather|runway|airfield|road|access)/.test(type)) {
+            score += 2;
+        }
+        return score;
+    }
+
+    function assistantIncidentTitle(feature) {
+        var properties = feature.properties || {};
+        return propertyValue(properties, ['event_name', 'eventName', 'incident_id', 'incidentId']) || 'incident';
+    }
+
+    function assistantRankedIncidents() {
+        return currentIncidentFeatures().map(function (feature) {
+            return {
+                feature: feature,
+                score: assistantIncidentRiskScore(feature)
+            };
+        }).filter(function (entry) {
+            return featureLngLat(entry.feature);
+        }).sort(function (left, right) {
+            return right.score - left.score;
+        });
+    }
+
+    function assistantZoomHighRisk(params) {
+        var ranked = assistantRankedIncidents();
+        if (!ranked.length) {
+            throw new Error('No current incidents are loaded yet. Show Current Incidents first.');
+        }
+        var limit = Math.max(1, Math.min(Number(params.limit || 5), 10));
+        var selected = ranked.slice(0, limit).map(function (entry) {
+            return entry.feature;
+        });
+        fitToFeatures(selected);
+        showFeaturePopup(selected[0], 'currentIncidents');
+        return 'Zoomed to ' + selected.length + ' high-risk incident' + (selected.length === 1 ? '' : 's') + '. Top incident: ' + assistantIncidentTitle(selected[0]) + '.';
+    }
+
+    function assistantSummarizeVisibleIncidents() {
+        var visible = assistantVisibleIncidentFeatures();
+        var all = currentIncidentFeatures();
+        if (!all.length) {
+            throw new Error('No current incidents are loaded yet. Show Current Incidents first.');
+        }
+        var highRisk = visible.filter(function (feature) {
+            return assistantIncidentRiskScore(feature) >= 4;
+        });
+        return visible.length + ' of ' + all.length + ' current incident' + (all.length === 1 ? '' : 's') +
+            ' are visible. ' + highRisk.length + ' visible incident' + (highRisk.length === 1 ? '' : 's') +
+            ' score as high risk based on significant event, air operations impact, workflow status, and event type.';
+    }
+
+    function assistantLngLatFromParams(params) {
+        if (params.longitude != null && params.latitude != null) {
+            return {
+                lng: Number(params.longitude),
+                lat: Number(params.latitude)
+            };
+        }
+        if (params.mgrsCoord && window.mgrs && typeof window.mgrs.toPoint === 'function') {
+            var point = window.mgrs.toPoint(params.mgrsCoord);
+            if (point && point.length >= 2) {
+                return {
+                    lng: Number(point[0]),
+                    lat: Number(point[1])
+                };
+            }
+        }
+        if (params.target === 'highestRiskIncident') {
+            var ranked = assistantRankedIncidents();
+            if (ranked.length) {
+                return featureLngLat(ranked[0].feature);
+            }
+        }
+        var center = map.getCenter();
+        return { lng: center.lng, lat: center.lat };
+    }
+
+    function assistantPreviewIncident(params) {
+        var lngLat = assistantLngLatFromParams(params);
+        if (!lngLat || !Number.isFinite(lngLat.lng) || !Number.isFinite(lngLat.lat)) {
+            throw new Error('Incident draft requires a valid coordinate.');
+        }
+        placeIncidentDraft(lngLat);
+        setIncidentFormValue('eventName', params.eventName || 'Assistant drafted incident');
+        setIncidentFormValue('eventType', params.eventType || 'Facility Damage');
+        setIncidentFormValue('eventCat', params.eventCat || 'Operational');
+        setIncidentFormValue('eventDesc', params.eventDesc || '');
+        setIncidentFormValue('source', params.source || 'Map Assistant');
+        setIncidentFormValue('sigEvent', params.sigEvent || 'No');
+        setIncidentFormValue('airOpsAffected', params.airOpsAffected || 'No');
+        if (params.mgrsCoord) {
+            setIncidentFormValue('mgrsCoord', params.mgrsCoord);
+            syncIncidentDraftFromCoordinateInputs();
+        }
+        setIncidentPanelOpen(true);
+        map.easeTo({
+            center: [lngLat.lng, lngLat.lat],
+            zoom: Math.max(map.getZoom(), 14),
+            duration: 650,
+            essential: true
+        });
+        return 'Incident draft staged in the existing Create Incident form. Review it, then use Save when ready.';
+    }
+
+    function assistantPlaceSearch(params) {
+        var lngLat = assistantLngLatFromParams(params);
+        showPlaceSearchPopup(lngLat);
+        return 'Wiki/GeoNames nearby search started.';
+    }
+
+    function assistantSupportSearch(params) {
+        var lngLat = assistantLngLatFromParams(params);
+        showSupportPoiPopup(lngLat);
+        return 'Response support lookup started.';
+    }
+
+    function assistantHealthSummary(params) {
+        var healthUrl = params.healthUrl || assistantConfig().serviceHealthUrl;
+        if (!healthUrl) {
+            throw new Error('Service health URL is not configured.');
+        }
+        return fetch(healthUrl, {
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(function (response) {
+            return response.json().then(function (payload) {
+                if (!response.ok) {
+                    throw new Error('Service health returned HTTP ' + response.status);
+                }
+                var services = payload.services || {};
+                var summary = Object.keys(services).map(function (key) {
+                    var service = services[key] || {};
+                    return (service.label || key) + ': ' + (service.status || 'unknown');
+                }).join('; ');
+                return summary || 'No service health details returned.';
+            });
+        });
     }
 
     function setGeoAiStatus(message, isError) {
@@ -5361,6 +5951,7 @@
     placeSearchTools.hidden = !config.tools.placeSearch;
     poiSearchTools.hidden = !config.tools.supportPoi;
     geoAiTools.hidden = !config.tools.geoaiRequests;
+    assistantTools.hidden = !(config.tools.assistant && assistantConfig().enabled);
     measureTools.hidden = !config.tools.measureDistance;
     drawTools.hidden = true;
     coordinatePanel.hidden = !config.tools.coordinates;
@@ -5731,6 +6322,31 @@
     if (geoAiForm) {
         geoAiForm.addEventListener('submit', submitGeoAiRun);
     }
+    if (assistantToggle) {
+        assistantToggle.addEventListener('click', function () {
+            setAssistantPanelOpen(assistantPanel.hidden);
+        });
+    }
+    if (assistantClose) {
+        assistantClose.addEventListener('click', function () {
+            setAssistantPanelOpen(false);
+        });
+    }
+    if (assistantForm) {
+        assistantForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submitAssistantPrompt(assistantPrompt ? assistantPrompt.value : '');
+        });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-assistant-prompt]'), function (button) {
+        button.addEventListener('click', function () {
+            if (assistantPrompt) {
+                assistantPrompt.value = button.getAttribute('data-assistant-prompt') || '';
+                assistantPrompt.focus();
+            }
+            submitAssistantPrompt(assistantPrompt ? assistantPrompt.value : '');
+        });
+    });
     if (fitLayer) {
         fitLayer.addEventListener('click', fitAllLoadedFeatures);
     }
@@ -5769,6 +6385,9 @@
             refreshMiniMapFromMain(true);
         }
     });
+    if (assistantConfig().open) {
+        setAssistantPanelOpen(true);
+    }
 })();
 </script>
 <g:if test="${incidentAnalystMode}">

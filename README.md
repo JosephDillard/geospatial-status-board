@@ -66,6 +66,10 @@ ingest, MCP tools, and a focused bridge/demo around the same map operations.
 - [Geospatial ETL Validation Toolkit](https://github.com/JosephDillard/geospatial-etl-validation-toolkit)
 - Map-to-AI Incident Analyst bridge/demo (local repo; GitHub publication pending)
 
+Key local demo docs:
+
+- [Map Assistant Demo](docs/map-assistant-demo.md)
+
 ## Run Locally
 
 Docker is not required for the normal development path. If no PostGIS profile is enabled, the app uses H2 for the root datasource and the named airport/incident datasources.
@@ -202,10 +206,9 @@ are missing. Set `GEOAI_DOWNLOAD_HF_MODEL=false`,
 `.env` to disable any automatic download.
 
 The OpenClaw profile gives the app a containerized assistant gateway foundation
-for the planned map command assistant. It does not yet execute map commands
-inside the browser; that still needs an allow-listed command endpoint and
-review/approval flow before write actions, such as plotting an incident, are
-saved.
+for the map command assistant demo. The current app endpoint turns prompts into
+allow-listed map/page actions and requires a reviewed draft flow before write
+actions, such as plotting an incident, can be saved.
 
 ### Keep Grails on H2
 
@@ -473,10 +476,12 @@ See:
 ## Development Roadmap
 
 OpenClaw is now available as an optional Docker gateway for the local development
-stack. The next map work is an OpenClaw-backed command assistant: a prompt on the
-shared MapLibre map where an analyst can ask for map tasks in natural language
-and the app turns those requests into reviewed, structured actions.
-Candidate requests include:
+stack, and the map includes a demo assistant panel at `/GeoStatusBoard/assistant`.
+The current planner is deterministic so the workflow can be demoed without
+external AI credentials, while still using the same reviewed, structured action
+contract planned for an OpenClaw-backed model call.
+
+Supported demo requests include:
 
 - "Plot a wildfire incident at 34.904222, -106.575583."
 - "Zoom to high-risk incidents north of Santa Fe."
@@ -484,12 +489,12 @@ Candidate requests include:
 - "Turn on airports, current incidents, and GeoAI detections."
 - "Draw an AOI around this view and submit a GeoAI road-detection run."
 
-The first app-connected version should route commands to existing map
-capabilities instead of creating a separate automation stack. Read-only commands
-can pan, filter, toggle layers, run Wiki/GeoNames or response-support lookups,
-and summarize visible incidents. Write commands, such as creating or editing an
-incident, should return a preview and require explicit user confirmation before
-anything is saved.
+The first app-connected version routes commands to existing map capabilities
+instead of creating a separate automation stack. Read-only commands can pan,
+toggle layers, run Wiki/GeoNames or response-support lookups, summarize visible
+incidents, and navigate to existing incident pages. Write commands, such as
+creating or editing an incident, return a preview and require explicit user
+review before anything is saved.
 
 Recommended implementation phases:
 
@@ -518,6 +523,7 @@ Recommended implementation phases:
 - Added custom route favicons and a minimizable overview map that opens with the main map.
 - Added Data Gateway health/link visibility on the hub and map service status surfaces.
 - Added an optional OpenClaw Docker Compose profile, health status, and hub links as the foundation for a map command assistant.
+- Added a demo map assistant panel with allow-listed map/page actions, reviewed incident draft staging, and OpenClaw-ready integration docs.
 - Pinned MapLibre GL JS/CSS assets to stable `maplibre-gl@5.24.0`.
 
 ## Data Sources
